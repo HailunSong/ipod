@@ -1,0 +1,55 @@
+# Publishes the bedside screen to GitHub Pages and refreshes the Edmonton weather every 30 minutes,
+# so the iPod no longer needs the Mac.
+name: Weather + publish
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '7,37 * * * *'      # every 30 min (off the busy :00 / :30 marks)
+  workflow_dispatch:
+
+permissions:
+  contents: write     # only for the weekly keep-alive commit
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch weather (keep the last good file if Open-Meteo fails)
+        run: |
+          URL='https://api.open-meteo.com/v1/forecast?latitude=53.55&longitude=-113.49&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset&timezone=America%2FEdmonton&forecast_days=3'
+          if curl -fsS --retry 3 --retry-delay 10 -m 30 "$URL" -o new.json && python3 -c "import json;d=json.load(open('new.json'));assert d['current'] and d['daily']['sunrise']"; then
+            mv new.json weather.json; echo "weather updated"
+          else
+            rm -f new.json; echo "::warning::weather fetch failed, keeping the previous weather.json"
+          fi
+
+      - name: Weekly keep-alive commit (GitHub pauses scheduled jobs in repos with no commits for 60 days)
+        if: github.event_name == 'schedule'
+        run: |
+          if [ "$(TZ=America/Edmonton date +%u%H)" = "703" ]; then
+            git config user.name "ipod-weather-bot"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            cp weather.json weather-last.json 2>/dev/null || true
+            git add weather.json
+            git commit -m "Weekly weather snapshot" && git push || true
+          fi
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - id: deploy
+        uses: actions/deploy-pages@v4

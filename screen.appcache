@@ -1,0 +1,9 @@
+CACHE MANIFEST
+# version 47
+
+index.html
+fonts/fraunces-latin-300-normal.woff
+fonts/fraunces-latin-400-italic.woff
+
+NETWORK:
+*

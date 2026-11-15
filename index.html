@@ -1,0 +1,1576 @@
+<!DOCTYPE html>
+<html lang="zh" manifest="screen.appcache">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="床头屏">
+<title>海伦床头屏</title>
+<style>
+  /* Bedside screen for iPod touch 5 (iOS 9.3.5): ES5 + prefixed flexbox, no CSS variables.
+     Palette: cream #f3ead9, warm grey #a99f91, amber #e6b26a, postcard paper #f1e6d0, ink #2b2230.
+     Background shifts with the time of day. Type: Fraunces (./fonts) for clock, French and
+     postcards; system sans elsewhere. Darcie, a free little black dog, lives in the footer. */
+
+  @font-face {
+    font-family: "Fraunces";
+    src: url("fonts/fraunces-latin-300-normal.woff") format("woff");
+    font-weight: 300; font-style: normal;
+  }
+  @font-face {
+    font-family: "Fraunces";
+    src: url("fonts/fraunces-latin-400-italic.woff") format("woff");
+    font-weight: 400; font-style: italic;
+  }
+
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    color: #f3ead9;
+    background: #13283a;
+    font-family: -apple-system, "Helvetica Neue", "PingFang SC", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: rgba(0,0,0,0);
+  }
+  body.dawn {
+    background: #1d2a3f;
+    background: -webkit-linear-gradient(290deg, #1d2a3f 0%, #343650 55%, #5e4757 100%);
+    background: linear-gradient(160deg, #1d2a3f 0%, #343650 55%, #5e4757 100%);
+  }
+  body.day {
+    background: #13283a;
+    background: -webkit-linear-gradient(290deg, #12263a 0%, #1b3a4e 100%);
+    background: linear-gradient(160deg, #12263a 0%, #1b3a4e 100%);
+  }
+  body.dusk {
+    background: #191629;
+    background: -webkit-linear-gradient(290deg, #181528 0%, #2a1e38 65%, #43293a 100%);
+    background: linear-gradient(160deg, #181528 0%, #2a1e38 65%, #43293a 100%);
+  }
+
+  .screen {
+    height: 100%;
+    box-sizing: border-box;
+    padding: 34px 24px 20px;
+    display: -webkit-box; display: -webkit-flex; display: flex;
+    -webkit-box-orient: vertical; -webkit-flex-direction: column; flex-direction: column;
+  }
+  .col-a, .col-b {
+    display: -webkit-box; display: -webkit-flex; display: flex;
+    -webkit-box-orient: vertical; -webkit-flex-direction: column; flex-direction: column;
+  }
+  .col-b { -webkit-box-flex: 0; -webkit-flex: none; flex: none; }
+  .screen { -webkit-box-pack: justify; -webkit-justify-content: space-between; justify-content: space-between; }
+
+  /* ---- Layout rhythm: three fixed blocks (clock / weather + outfit + word / Darcie),
+     spacing 8 · 16 · 24 only. Amber is kept for the colon, "new" and real alerts. ---- */
+
+  /* ---- Clock ---- */
+  .time {
+    margin-left: -5px;
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 300;
+    font-size: 116px;
+    line-height: 0.95;
+    letter-spacing: -3px;
+    -webkit-font-feature-settings: "tnum", "lnum";
+    font-feature-settings: "tnum", "lnum";
+  }
+  .colon { color: #e6b26a; position: relative; top: -8px; margin: 0 2px; }
+  .date-cn { margin-top: 8px; font-size: 15px; color: #f3ead9; letter-spacing: 0.5px; }
+  .date-cn i { font-family: "Fraunces", Georgia, serif; color: #a99f91; margin-left: 2px; }
+
+  /* ---- Weather ---- */
+  .weather { margin-top: 0; display: none; }
+  .w-row {
+    display: -webkit-box; display: -webkit-flex; display: flex;
+    -webkit-box-align: center; -webkit-align-items: center; align-items: center;
+  }
+  .w-icon { width: 42px; height: 42px; margin-right: 10px; color: #f3ead9; }
+  .w-icon svg { width: 42px; height: 42px; display: block; }
+  .w-temp {
+    font-family: "Fraunces", Georgia, serif; font-weight: 300;
+    font-size: 52px; line-height: 1; letter-spacing: -1px;
+    -webkit-font-feature-settings: "lnum"; font-feature-settings: "lnum";
+  }
+  .w-desc { margin-left: 18px; white-space: nowrap; font-size: 15px; color: #a99f91; line-height: 1.4; }
+  .w-desc b { display: block; color: #f3ead9; font-weight: 500; font-size: 20px; }
+  .w-desc i, .w-days i, .w-sun i { font-family: "Fraunces", Georgia, serif; font-style: italic; }
+
+  /* today's low → high, with a dot for now */
+  .w-bar {
+    margin-top: 16px;
+    display: -webkit-box; display: -webkit-flex; display: flex;
+    -webkit-box-align: center; -webkit-align-items: center; align-items: center;
+    font-size: 14px; color: #a99f91;
+    -webkit-font-feature-settings: "tnum"; font-feature-settings: "tnum";
+  }
+  .w-bar .lbl { margin-right: 10px; font-size: 12px; }
+  #wLo, #wHi, .v { color: #f3ead9; font-weight: 500; }
+  .w-track {
+    position: relative;
+    -webkit-box-flex: 1; -webkit-flex: 1; flex: 1;
+    height: 4px; margin: 0 10px; border-radius: 2px;
+    background: #6b8fb3;
+    background: -webkit-linear-gradient(left, #5f84ad, #c9a46e);
+    background: linear-gradient(to right, #5f84ad, #c9a46e);
+  }
+  .w-dot {
+    position: absolute; top: -5px; left: 50%;
+    width: 14px; height: 14px; margin-left: -7px; box-sizing: border-box;
+    border-radius: 50%; background: #f3ead9; border: 3px solid #1d1a26;
+  }
+  .w-days {
+    margin-top: 8px;
+    font-size: 14px; color: #a99f91;
+  }
+  .w-days .sep { margin: 0 8px; opacity: 0.5; }
+  .w-days .rain, .w-days .rain .v { color: #e6b26a; }
+
+  .w-sun { display: none; margin-top: 4px; }
+  .w-sun.on { display: block; }
+  .w-sun { white-space: normal; }
+  .sun-row { display: -webkit-box; display: -webkit-flex; display: flex;
+    -webkit-box-align: center; -webkit-align-items: center; align-items: center; }
+  .sun-arc { display: block; margin-right: 10px; -webkit-flex-shrink: 0; flex-shrink: 0; }
+  .sun-txt { line-height: 1.35; white-space: nowrap; }
+  .sun-sub { font-size: 11.5px; color: #8f8576; }
+
+  /* ---- Newspaper reminder (by schedule: 晨报 7:00, 晚报 18:00, 周报 Sun 20:00) ---- */
+  .paper { display: none; margin-top: 10px; font-size: 14px; color: #f3ead9; }
+  .paper svg { width: 16px; height: 16px; vertical-align: -3px; margin-right: 6px; color: #a99f91; }
+  .paper span { color: #a99f91; margin-left: 4px; }
+  .night-sun { display: none; }
+
+  /* ---- Outfit ---- */
+  .wear { margin-top: 16px; font-size: 21px; line-height: 1.4; }
+  .wear-label { display: inline-block; margin-right: 8px; color: #a99f91; vertical-align: -4px; }
+  .wear-label svg { width: 24px; height: 24px; display: inline-block; vertical-align: top; }
+  .wear-label em { font-style: normal; font-size: 13px; margin-left: 4px; vertical-align: 6px; }
+  .w-stale { display: none; margin-top: 8px; font-size: 11px; color: #e6b26a; }
+  .wi { white-space: nowrap; }
+  .chips { margin-top: 8px; white-space: nowrap; overflow: hidden; }
+  .chip {
+    display: inline-block; margin: 0 8px 0 0; padding: 0 8px;
+    border: 1px solid rgba(243,234,217,0.3); border-radius: 10px;
+    color: #f3ead9; font-size: 14px; line-height: 24px;
+  }
+  .chip.alert { border-color: rgba(230,178,106,0.7); color: #e6b26a; }
+
+  /* ---- Word of the day (from today's postcard) ---- */
+  .phrase { margin-top: 24px; }
+  .vocab-label { font-size: 10px; letter-spacing: 2.4px; text-transform: uppercase; color: #a99f91; margin-bottom: 0; }
+  .fr { font-family: "Fraunces", Georgia, serif; font-style: italic; font-size: 26px; line-height: 1.25; }
+  .cn-line { margin-top: 4px; font-size: 15px; line-height: 1.5; color: #f3ead9; }
+  .pos { margin-left: 8px; font-size: 12px; color: #a99f91; }
+  .note { display: none !important; }
+
+  /* ---- Darcie corner ---- */
+  .footer { padding-top: 12px; }
+  .dz-land { display: none; margin-top: 20px; }
+  .dz-head {
+    display: -webkit-box; display: -webkit-flex; display: flex;
+    -webkit-box-align: center; -webkit-align-items: center; align-items: center;
+    font-size: 12px; color: #a99f91;
+  }
+  .paw { width: 14px; height: 14px; margin-right: 7px; color: #e6b26a; }
+  .paw svg { width: 14px; height: 14px; display: block; }
+  .dz-name { color: #a99f91; letter-spacing: 1.6px; text-transform: uppercase; font-size: 11px; margin-right: 7px; }
+  .dz-new {
+    margin-left: 6px; padding: 0 6px; border-radius: 8px;
+    background: #e6b26a; color: #1a1622; font-size: 10px; line-height: 16px;
+  }
+  .dz-row {
+    display: -webkit-box; display: -webkit-flex; display: flex;
+    -webkit-box-align: center; -webkit-align-items: center; align-items: center;
+  }
+  .dz-main { -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; min-width: 0; }
+  .dz-status { line-height: 1.4; }
+  .pc-btn {
+    position: relative;
+    -webkit-flex-shrink: 0; flex-shrink: 0;
+    width: 38px; height: 28px; margin: 6px 8px 0 14px;
+    background: #f1e6d0; color: #2b2230;
+    border-radius: 2px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.35);
+    -webkit-transform: rotate(-5deg); transform: rotate(-5deg);
+    display: -webkit-box; display: -webkit-flex; display: flex;
+    -webkit-box-align: center; -webkit-align-items: center; align-items: center;
+    -webkit-box-pack: center; -webkit-justify-content: center; justify-content: center;
+    cursor: pointer;
+  }
+  .pc-btn svg { width: 22px; height: 22px; display: block; }
+  .pc-count {
+    position: absolute; top: -8px; right: -8px;
+    min-width: 18px; height: 18px; padding: 0 4px; box-sizing: border-box;
+    border-radius: 9px; background: #3a3346; color: #f3ead9;
+    font-size: 10px; line-height: 18px; text-align: center;
+    -webkit-transform: rotate(5deg); transform: rotate(5deg);
+  }
+  .pc-count.new { background: #e6b26a; color: #1a1622; }
+  .dz-album {
+    margin-left: auto; padding: 6px 0 6px 12px;
+    color: #f3ead9; font-size: 12px; cursor: pointer; white-space: nowrap;
+  }
+  .dog { width: 28px; height: 28px; margin-right: 8px; -webkit-flex-shrink: 0; flex-shrink: 0; }
+  .dog svg { width: 28px; height: 28px; display: block; }
+  .dz-bubble {
+    display: inline-block; max-width: 100%; box-sizing: border-box;
+    margin-top: 7px; padding: 8px 12px;
+    background: rgba(243,234,217,0.10);
+    border-radius: 3px 14px 14px 14px;
+    font-size: 15px; line-height: 1.45; color: #f3ead9;
+  }
+  .dz-bubble.old { background: rgba(243,234,217,0.05); color: #a99f91; }
+  .dz-bubble.old .dz-fr { color: #cfc5b5; }
+  .dz-bubble .t { margin-left: 6px; font-size: 11px; color: #a99f91; }
+  .dz-link { color: #e6b26a; cursor: pointer; font-size: 16px; }
+  .dz-fr { display: block; font-family: "Fraunces", Georgia, serif; font-style: italic; font-size: 16px; line-height: 1.35; color: #f3ead9; }
+
+  /* ---- Overlay: postcard and album ---- */
+  .ov {
+    display: none;
+    position: fixed; left: 0; top: 0; right: 0; bottom: 0;
+    z-index: 50;
+    background: #0e0c13;
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+  }
+  .ov-inner { padding: 22px 14px; box-sizing: border-box; min-height: 100%;
+    display: -webkit-box; display: -webkit-flex; display: flex;
+    -webkit-box-orient: vertical; -webkit-flex-direction: column; flex-direction: column;
+    -webkit-box-pack: center; -webkit-justify-content: center; justify-content: center;
+  }
+
+  /* ---- City colour wash (colour set by applyAccent) ---- */
+  #tint { position: fixed; left: 0; right: 0; bottom: 0; height: 55%; pointer-events: none; z-index: 0; }
+  .screen { position: relative; z-index: 1; }
+  body.night #tint { display: none; }
+
+  /* ---- Photo of today's stop, behind the clock (darkened, fading into the background) ---- */
+  #photo {
+    position: fixed; left: 0; right: 0; top: 0; height: 52%;
+    background-size: cover; background-position: center 40%;
+    -webkit-mask-image: -webkit-linear-gradient(top, rgba(0,0,0,1) 45%, rgba(0,0,0,0) 100%);
+    pointer-events: none; z-index: 0;
+    opacity: 0; -webkit-transition: opacity 1.2s; transition: opacity 1.2s;
+  }
+  #photo.on { opacity: 1; }
+  body.dawn #photo { -webkit-filter: brightness(0.6) saturate(0.9); }
+  body.day #photo { -webkit-filter: brightness(0.62) saturate(0.95); }
+  body.dusk #photo { -webkit-filter: brightness(0.42) saturate(0.8); }
+  body.night #photo { display: none; }
+  body.has-photo .time, body.has-photo .date-cn, body.has-photo .paper { text-shadow: 0 1px 12px rgba(0,0,0,0.45); }
+
+
+  /* ---- Time-of-day emphasis: morning = today's weather + outfit, day = Darcie + word, evening = tomorrow ---- */
+  body.m-morning .wear { font-size: 23px; }
+  body.m-day .dz-bubble { font-size: 16px; }
+  body.m-day .dz-fr { font-size: 17px; }
+  body.m-day .fr { font-size: 29px; }
+
+  /* ---- Auto-fit: on busy days, give way step by step so nothing gets cut off ---- */
+  .screen.tight .time { font-size: 100px; }
+  .screen.tight .weather { margin-top: 0; }
+  .screen.tight .w-bar { margin-top: 8px; }
+  .screen.tight .phrase { margin-top: 16px; }
+  .screen.tight .vocab-label { display: none; }
+  .screen.tight2 .phrase { display: none; }
+  .screen.tight3 .chips { display: none; }
+  .screen.tight3 .wear { font-size: 18px; }
+
+  /* ---- Night (22:00–6:00): black, dim red clock only; tap shows everything for 15 s ---- */
+  /* ---- Night: a dim, warm sky; nothing bright enough to keep you awake ---- */
+  #stars { display: none; position: fixed; left: 0; top: 0; right: 0; bottom: 0; pointer-events: none; }
+  #stars i { position: absolute; border-radius: 50%; background: #c2a585; }
+  body.night #stars { display: block; }
+  #moon { display: none; position: fixed; left: 50%; top: 45%; width: 106vw; height: 106vw; margin-left: -53vw; margin-top: -53vw; pointer-events: none; }
+  #moon svg { width: 100%; height: 100%; display: block; }
+  body.night #moon { display: block; }
+  body.night { background: #050407;
+    background: -webkit-radial-gradient(50% 0%, ellipse cover, #120d0c 0%, #050407 70%);
+    background: radial-gradient(ellipse at 50% 0%, #120d0c 0%, #050407 70%); }
+  body.night .time { color: #a8896a; font-weight: 300; text-shadow: 0 0 22px #050407, 0 0 8px #050407; }
+  body.night .colon { color: #a8896a; -webkit-animation: none; animation: none; opacity: 0.7; }
+  body.night .date-cn, body.night .date-cn i { color: #7a6250; text-shadow: 0 0 10px #050407; }
+  body.night .night-sun { text-shadow: 0 0 10px #050407, 0 0 4px #050407; }
+  body.night .paper { display: none !important; }
+  body.night .clock-grp { text-align: center; }
+  body.night .night-sun { display: block; margin-top: 26px; }
+  body.night .col-b, body.night .footer, body.night .dz-land { display: none !important; }
+  body.night .screen { -webkit-box-pack: center; -webkit-justify-content: center; justify-content: center; }
+  body.night .col-a { -webkit-box-align: center; -webkit-align-items: center; align-items: center; width: 100% !important; }
+  /* night text: big enough to read from the pillow */
+  body.night .time { font-size: 124px; }
+  body.night .date-cn { margin-top: 10px; font-size: 18px; }
+  body.night .night-sun { margin-top: 34px; }
+  .ni-sun { font-family: "Fraunces", Georgia, serif; font-style: italic; font-size: 18px; color: #7a6250; }
+  .ni-sun b { display: block; margin-top: 2px; font-style: normal; font-weight: 300; font-size: 54px; line-height: 1; color: #9a7656; }
+  .ni-line { font-family: "Fraunces", Georgia, serif; font-style: italic; font-size: 18px; line-height: 1.45; color: #6f5947; margin-top: 12px; white-space: nowrap; }
+  .ni-line b { font-family: -apple-system, "Helvetica Neue", sans-serif; font-style: normal; font-weight: 400; color: #85694f; }
+  .ni-ico { display: inline-block; vertical-align: -4px; width: 22px; height: 22px; margin: 0 7px 0 4px; color: #85694f; }
+  .ni-ico svg { width: 22px; height: 22px; display: block; }
+  .ni-sep { display: none; }
+  .ni-moon, .ni-dz { display: block; }
+  .ni-dz { margin-top: 6px; }
+  .ni-zz { font-style: normal; font-size: 12px; letter-spacing: 1px; margin-left: 6px; color: #55443a; }
+  /* landscape night: clock on the left, the rest on the right */
+  @media (orientation: landscape) {
+    #moon { top: 50%; width: 100vh; height: 100vh; margin-left: -50vh; margin-top: -50vh; }
+    body.night .clock-grp { display: -webkit-box; display: -webkit-flex; display: flex;
+      -webkit-box-align: center; -webkit-align-items: center; align-items: center; text-align: left; }
+    body.night .clock-main { width: 290px; text-align: center; -webkit-flex-shrink: 0; flex-shrink: 0; }
+    body.night .time { font-size: 110px; }
+    body.night .night-sun { margin: 0 0 0 22px; padding-left: 22px; border-left: 1px solid rgba(122,98,80,0.25);
+      -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; min-width: 0; }
+    body.night .ni-line { white-space: normal; line-height: 1.3; }
+    .ni-sun { font-size: 16px; }
+    .ni-sun b { font-size: 46px; }
+    .ni-line { font-size: 17px; margin-top: 10px; }
+    .ni-dz { margin-top: 4px; }
+  }
+
+  /* ---- Landscape 568×320: clock + Darcie left, weather + phrase right ---- */
+  @media (orientation: landscape) {
+    .screen {
+      -webkit-box-orient: horizontal; -webkit-flex-direction: row; flex-direction: row;
+      padding: 18px 26px 16px;
+    }
+    .col-a { width: 47%; -webkit-box-pack: center; -webkit-justify-content: center; justify-content: center; }
+    .col-b {
+      -webkit-box-flex: 1; -webkit-flex: 1; flex: 1;
+      margin-left: 22px; padding-left: 22px;
+      border-left: 1px solid rgba(243,234,217,0.14);
+      -webkit-box-pack: center; -webkit-justify-content: center; justify-content: center;
+    }
+    .time { font-size: 116px; }
+    .date-cn { font-size: 14px; }
+    .weather { margin-top: 2px; }
+    .w-icon, .w-icon svg { width: 38px; height: 38px; }
+    .w-temp { font-size: 48px; }
+    .w-desc { font-size: 14px; line-height: 1.35; }
+    .w-desc b { font-size: 18px; }
+    .w-bar { margin-top: 12px; font-size: 13px; }
+    .w-days { margin-top: 6px; font-size: 13px; white-space: nowrap; }
+    .wear { margin-top: 12px; font-size: 19px; }
+    .wear-label svg { width: 20px; height: 20px; }
+    .wear-label em { font-size: 12px; vertical-align: 4px; }
+    .chips { margin-top: 6px; }
+    .chip { font-size: 12px; line-height: 20px; }
+    .phrase { margin-top: 20px; padding-top: 0; }
+    .vocab-label { display: none; }
+    .fr { font-size: 23px; }
+    .cn-line { margin-top: 2px; font-size: 14px; }
+    .footer { display: none; }
+    .dz-land { display: block; margin-top: 34px; }
+    .pc-btn { margin-right: 12px; }
+    .dz-bubble { font-size: 13px; padding: 6px 10px; }
+    body.m-day .dz-bubble { font-size: 14px; }
+    .dz-fr { font-size: 14px; }
+    .dz-name { display: none; }
+    .dz-head { white-space: nowrap; font-size: 12px; }
+    /* landscape: the photo spans the whole width, fading towards the bottom */
+    #photo { right: 0; height: 100%; background-position: center 45%;
+      -webkit-mask-image: -webkit-linear-gradient(top, rgba(0,0,0,1) 35%, rgba(0,0,0,0.15) 100%); }
+    body.dawn #photo { -webkit-filter: brightness(0.5) saturate(0.9); }
+    body.day #photo { -webkit-filter: brightness(0.42) saturate(0.9); }
+    body.dusk #photo { -webkit-filter: brightness(0.36) saturate(0.8); }
+    body.has-photo .col-b { text-shadow: 0 1px 8px rgba(0,0,0,0.5); }
+  }
+
+  /* ================= Postcard ================= */
+  .ov-btn { cursor: pointer; padding: 4px 0 4px 10px; }
+  .pc {
+    position: relative; overflow: hidden;
+    width: 100%; max-width: 440px; margin: 0 auto; box-sizing: border-box;
+    background: #f4ecdd;
+    background: -webkit-radial-gradient(70% 20%, ellipse cover, #faf5ea 0%, #f1e7d4 100%);
+    background: radial-gradient(ellipse at 70% 20%, #faf5ea 0%, #f1e7d4 100%);
+    color: #2b2230;
+    border-radius: 2px;
+    box-shadow: 0 18px 40px rgba(0,0,0,0.5);
+  }
+  /* photo with the place name set on it */
+  .pc-photo { position: relative; height: 196px; overflow: hidden; background: #2a2530; cursor: pointer; }
+  .pc-img { position: absolute; left: 0; top: 0; right: 0; bottom: 0;
+    background-position: center 45%; background-size: cover; background-repeat: no-repeat; }
+  .pc-shade { position: absolute; left: 0; right: 0; bottom: 0; height: 70%;
+    background: -webkit-linear-gradient(top, rgba(12,10,16,0) 0%, rgba(12,10,16,0.62) 100%);
+    background: linear-gradient(to bottom, rgba(12,10,16,0) 0%, rgba(12,10,16,0.62) 100%); }
+  .pc-cap { position: absolute; left: 18px; right: 18px; bottom: 15px; color: #fff; }
+  .pc-place { font-family: "Fraunces", Georgia, serif; font-weight: 300; font-size: 25px; line-height: 1.12; text-shadow: 0 1px 10px rgba(0,0,0,0.35); }
+  .pc-local { margin-top: 5px; font-size: 12px; letter-spacing: 1px; color: rgba(255,255,255,0.85); }
+  .pc-en { margin-left: 8px; padding-left: 8px; border-left: 1px solid rgba(255,255,255,0.4);
+    font-family: "Fraunces", Georgia, serif; font-style: italic; letter-spacing: 0; font-size: 12.5px; color: rgba(255,255,255,0.72); }
+  .pc-credit { position: absolute; right: 8px; top: 7px; max-width: 70%;
+    font-size: 8px; line-height: 1.3; color: rgba(255,255,255,0.7); text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pc-x { position: absolute; z-index: 2; left: 10px; top: 10px;
+    width: 26px; height: 26px; line-height: 25px; text-align: center; border-radius: 13px;
+    font-size: 17px; color: #fff; background: rgba(0,0,0,0.32); }
+
+  .pc-text { padding: 16px 20px 12px; }
+  .pc-head { position: relative; padding-right: 86px; min-height: 62px; }
+  .pc-eyebrow { font-size: 9px; letter-spacing: 2.6px; color: #9d8e79; }
+  .pc-greet { margin-top: 9px; font-family: "Fraunces", Georgia, serif; font-style: italic; font-size: 21px; line-height: 1.2; }
+  .pc-greet-zh { margin-top: 3px; font-size: 12px; letter-spacing: 1px; opacity: 0.85; }
+  .pc-stamp { position: absolute; right: 0; top: 0; width: 50px; height: 58px; box-sizing: border-box;
+    padding: 3px; background: #fbf7ee; border: 1.5px dashed #d4c7ae;
+    -webkit-transform: rotate(3deg); transform: rotate(3deg); }
+  .pc-stamp-in { height: 100%; box-sizing: border-box; border: 1px solid currentColor;
+    display: -webkit-box; display: -webkit-flex; display: flex;
+    -webkit-box-orient: vertical; -webkit-flex-direction: column; flex-direction: column;
+    -webkit-box-align: center; -webkit-align-items: center; align-items: center;
+    -webkit-box-pack: center; -webkit-justify-content: center; justify-content: center; }
+  .pc-stamp-in svg { width: 24px; height: 24px; display: block; }
+  .pc-stamp-txt { margin-top: 2px; font-size: 8px; letter-spacing: 1px; font-weight: 600; }
+  .pc-mark { position: absolute; right: 30px; top: 22px; width: 50px; height: 50px; border-radius: 50%;
+    border: 1px solid rgba(43,34,48,0.28); color: rgba(43,34,48,0.4);
+    text-align: center; font-size: 7px; line-height: 1.25; letter-spacing: 0.6px;
+    -webkit-transform: rotate(-14deg); transform: rotate(-14deg);
+    display: -webkit-box; display: -webkit-flex; display: flex;
+    -webkit-box-orient: vertical; -webkit-flex-direction: column; flex-direction: column;
+    -webkit-box-pack: center; -webkit-justify-content: center; justify-content: center; }
+  .pc-mark b { display: block; font-size: 8px; font-weight: 600; }
+  .pc-rule { width: 22px; height: 1px; margin: 14px 0 12px; opacity: 0.6; }
+  .pc-body-fr { font-family: "Fraunces", Georgia, serif; font-weight: 300; font-size: 16px; line-height: 1.55; color: #2b2230; }
+  .pc-body { margin-top: 8px; font-size: 12.5px; line-height: 1.7; color: #7d7062; }
+  .pc-sign { margin-top: 10px; text-align: right; font-family: "Fraunces", Georgia, serif; font-style: italic; font-size: 16px; }
+  .pc-sign { color: #2b2230; }
+  .pc-sign .paw { display: inline-block; vertical-align: -1px; margin-left: 5px; color: #2b2230; }
+  .pc-foot { margin-top: 12px; padding-top: 9px; border-top: 1px solid rgba(43,34,48,0.1);
+    font-family: "Fraunces", Georgia, serif; font-style: italic; font-size: 12px; color: #9d8e79;
+    display: -webkit-box; display: -webkit-flex; display: flex;
+    -webkit-box-pack: justify; -webkit-justify-content: space-between; justify-content: space-between;
+    -webkit-box-align: center; -webkit-align-items: center; align-items: center; }
+
+  /* landscape: a full-screen card, photo left, text right, nothing to scroll */
+  @media (orientation: landscape) {
+    .ov.card { overflow: hidden; }
+    .ov.card .ov-inner { padding: 0; height: 100%; min-height: 0; }
+    .ov.card .pc { max-width: none; height: 100%; border-radius: 0; box-shadow: none;
+      display: -webkit-box; display: -webkit-flex; display: flex; }
+    .ov.card .pc-photo { width: 46%; height: 100%; -webkit-box-flex: 0; -webkit-flex: none; flex: none; }
+    .ov.card .pc-cap { left: 20px; bottom: 18px; }
+    .ov.card .pc-place { font-size: 24px; }
+    .ov.card .pc-cap { right: 16px; }
+    .ov.card .pc-text { -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; min-width: 0; overflow: hidden;
+      padding: 16px 20px 10px 22px;
+      display: -webkit-box; display: -webkit-flex; display: flex;
+      -webkit-box-orient: vertical; -webkit-flex-direction: column; flex-direction: column; }
+    .ov.card .pc-text > div { -webkit-flex-shrink: 0; flex-shrink: 0; }
+    .ov.card .pc-greet { font-size: 19px; }
+    .ov.card .pc-rule { margin: 11px 0 10px; }
+    .ov.card .pc-body-fr { font-size: 14.5px; line-height: 1.5; }
+    .ov.card .pc-body { margin-top: 6px; font-size: 11.5px; line-height: 1.6; }
+    .ov.card .pc-sign { margin-top: 6px; font-size: 15px; }
+    .ov.card .pc-foot { margin-top: auto; padding-top: 7px; }
+    .pc.s1 .pc-body-fr { font-size: 13.5px; line-height: 1.45; }
+    .pc.s1 .pc-body { font-size: 11px; line-height: 1.5; }
+    .pc.s2 .pc-rule { margin: 8px 0 7px; }
+    .pc.s2 .pc-greet { margin-top: 6px; font-size: 17px; }
+    .pc.s2 .pc-head { min-height: 56px; }
+    .pc.s3 .pc-body-fr { font-size: 13px; line-height: 1.4; }
+    .pc.s3 .pc-body { font-size: 10.5px; line-height: 1.45; }
+    .pc.s3 .pc-sign { margin-top: 2px; font-size: 14px; }
+    .pc.s4 .pc-greet-zh { display: none; }
+  }
+
+  /* ================= Album: a travel journal, one chapter per city ================= */
+  .ov.album { background: #121017;
+    background: -webkit-linear-gradient(top, #1a1620 0%, #100e14 340px);
+    background: linear-gradient(to bottom, #1a1620 0%, #100e14 340px); }
+  .ov.album .ov-inner { -webkit-box-pack: start; -webkit-justify-content: flex-start; justify-content: flex-start; padding: 0; }
+  .alb { position: relative; width: 100%; box-sizing: border-box; padding: 28px 18px 34px; }
+  .alb-top { position: relative; padding-right: 40px; }
+  .alb-eyebrow { font-size: 9px; letter-spacing: 3px; color: #8a8072; }
+  .alb-title { margin-top: 10px; font-family: "Fraunces", Georgia, serif; font-weight: 300; font-size: 34px; line-height: 1; color: #f3ead9; letter-spacing: -0.5px; }
+  .alb-title-zh { margin-top: 6px; font-size: 13px; letter-spacing: 4px; color: #b9ae9e; }
+  .alb-x { position: absolute; z-index: 2; right: 16px; top: 22px; width: 30px; height: 30px; line-height: 29px; text-align: center;
+    border-radius: 15px; font-size: 18px; color: #f3ead9; background: rgba(243,234,217,0.09); cursor: pointer; }
+  .alb-stats { margin-top: 20px; font-size: 0;
+    display: -webkit-box; display: -webkit-flex; display: flex; }
+  .alb-stat { -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; }
+  .alb-stat b { display: block; font-family: "Fraunces", Georgia, serif; font-weight: 300; font-size: 26px; line-height: 1; color: #f3ead9; }
+  .alb-stat span { display: block; margin-top: 5px; font-family: "Fraunces", Georgia, serif; font-style: italic; font-size: 12px; color: #8a8072; }
+  .alb-prog { margin-top: 14px; height: 2px; background: rgba(243,234,217,0.1); border-radius: 1px; overflow: hidden; }
+  .alb-prog i { display: block; height: 100%; border-radius: 1px; }
+  .alb-now { margin-top: 10px; font-family: "Fraunces", Georgia, serif; font-size: 13px; color: #a99f91; }
+  .alb-now b { font-weight: 400; }
+
+  .alb-ch { margin-top: 30px;
+    display: -webkit-box; display: -webkit-flex; display: flex;
+    -webkit-box-align: end; -webkit-align-items: flex-end; align-items: flex-end; }
+  .alb-chno { width: 44px; font-family: "Fraunces", Georgia, serif; font-weight: 300; font-size: 30px; line-height: 0.9; }
+  .alb-chmain { -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; min-width: 0; }
+  .alb-chname { font-family: "Fraunces", Georgia, serif; font-weight: 300; font-size: 21px; line-height: 1.1; color: #f3ead9; }
+  .alb-chname i { font-family: "Fraunces", Georgia, serif; font-style: italic; font-size: 14px; letter-spacing: 0; margin-left: 7px; }
+  .alb-chdate { margin-top: 4px; font-family: "Fraunces", Georgia, serif; font-style: italic; font-size: 12px; color: #8a8072; }
+  .alb-chico svg { width: 20px; height: 20px; display: block; opacity: 0.9; }
+  .alb-grid { margin: 12px -4px 0; font-size: 0; }
+  .alb-card { display: inline-block; vertical-align: top; width: 50%; box-sizing: border-box; padding: 4px; cursor: pointer; }
+  .alb-card.big { width: 100%; }
+  .alb-ph { position: relative; padding-top: 72%; overflow: hidden; border-radius: 3px; background: #2a2530; background-size: cover; background-position: center; }
+  .alb-card.big .alb-ph { padding-top: 58%; }
+  .alb-ph:after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 78%;
+    background: -webkit-linear-gradient(top, rgba(10,8,14,0) 0%, rgba(10,8,14,0.55) 55%, rgba(10,8,14,0.85) 100%);
+    background: linear-gradient(to bottom, rgba(10,8,14,0) 0%, rgba(10,8,14,0.55) 55%, rgba(10,8,14,0.85) 100%); }
+  .alb-cap { position: absolute; z-index: 1; left: 9px; right: 9px; bottom: 8px; color: #fff; }
+  .alb-spot { font-family: "Fraunces", Georgia, serif; font-weight: 300; font-size: 13px; line-height: 1.2; text-shadow: 0 1px 6px rgba(0,0,0,0.4);
+    max-height: 2.4em; overflow: hidden; }
+  .alb-date { margin-top: 3px; font-family: "Fraunces", Georgia, serif; font-style: italic; font-size: 10.5px; color: rgba(255,255,255,0.75); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .alb-card.big .alb-cap { left: 14px; bottom: 12px; }
+  .alb-card.big .alb-spot { font-size: 23px; font-weight: 300; }
+  .alb-card.big .alb-date { font-size: 12px; margin-top: 4px; }
+  .alb-tag { position: absolute; z-index: 1; left: 12px; top: 11px; font-size: 8.5px; letter-spacing: 2px; line-height: 17px; padding: 0 7px; border-radius: 9px; color: #1a1622; }
+  .alb-empty { margin-top: 30px; font-size: 13px; line-height: 1.7; color: #a99f91; }
+  @media (orientation: landscape) {
+    .alb { padding: 22px 28px 28px; }
+    .alb-x { right: 22px; top: 18px; }
+    .alb-hero { display: -webkit-box; display: -webkit-flex; display: flex;
+      -webkit-box-align: end; -webkit-align-items: flex-end; align-items: flex-end; padding-right: 44px; }
+    .alb-top { -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; padding-right: 20px; }
+    .alb-meta { width: 46%; }
+    .alb-stats { margin-top: 0; }
+    .alb-ch { margin-top: 24px; }
+    .alb-card { width: 25%; }
+    .alb-card.big { width: 50%; }
+    .alb-card.big .alb-ph { padding-top: 72%; }
+  }
+</style>
+</head>
+<body class="day">
+<div id="stars"></div>
+<div id="moon"></div>
+<div id="photo"></div>
+<div id="tint"></div>
+<div class="screen">
+  <div class="col-a">
+    <div class="clock-grp">
+      <div class="clock-main">
+        <div class="time" id="time">--<span class="colon">:</span>--</div>
+        <div class="date-cn" id="dateCn">&nbsp;</div>
+      </div>
+      <div class="paper" id="paper"></div>
+      <div class="night-sun" id="nightSun"></div>
+    </div>
+    <div class="dz-land" id="dzLand"></div>
+  </div>
+
+  <div class="col-b">
+    <div class="weather" id="weather">
+      <div class="w-row">
+        <div class="w-icon" id="wIcon"></div>
+        <div class="w-temp" id="wTemp"></div>
+        <div class="w-desc" id="wDesc"></div>
+      </div>
+      <div class="w-bar" id="wBar"><span class="lbl" id="wBarLbl">今天</span><span id="wLo"></span><div class="w-track"><div class="w-dot" id="wDot"></div></div><span id="wHi"></span></div>
+      <div class="w-days" id="wDays"></div>
+      <div class="w-days w-sun" id="wSun"></div>
+      <div class="wear" id="wWear"></div>
+      <div class="w-stale" id="wStale"></div>
+    </div>
+
+    <div class="phrase">
+      <div class="vocab-label">Mot du jour</div>
+      <div class="fr" id="fr"></div>
+      <div class="cn-line" id="cn"></div>
+      <div class="note" id="note"></div>
+    </div>
+  </div>
+
+  <div class="footer" id="dzPort"></div>
+</div>
+
+<style id="accent"></style>
+<div class="ov" id="ov"><div class="ov-inner" id="ovInner"></div></div>
+
+<div id="err" style="display:none;position:fixed;left:0;right:0;bottom:0;padding:4px 8px;font-size:10px;color:#ff7b72;background:#000;z-index:99;"></div>
+<script>
+  window.onerror = function (msg, src, line) {
+    var e = document.getElementById("err");
+    e.innerHTML = "出错: " + msg + " (第 " + line + " 行)";
+    e.style.display = "block";
+  };
+</script>
+<script>
+  // ES5 only — runs on iOS 9 Safari
+  function $(id) { return document.getElementById(id); }
+  function pad(n) { return n < 10 ? "0" + n : "" + n; }
+  function hm(mins) { return pad(Math.floor(mins / 60)) + ":" + pad(mins % 60); }
+  function dayOfYear(d) {
+    var start = new Date(d.getFullYear(), 0, 0);
+    return Math.floor((d.getTime() - start.getTime()) / 86400000);
+  }
+  function dayNum(d) { return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000); }
+  function dateOf(dn) { var u = new Date(dn * 86400000); return new Date(u.getUTCFullYear(), u.getUTCMonth(), u.getUTCDate()); }
+
+  var phrases = [
+    ["Petit à petit, l'oiseau fait son nid.", "一点一点，鸟儿筑成巢。", "耐心积累，水到渠成"],
+    ["Qui vivra verra.", "活着的人自会看到。", "顺其自然，走着瞧"],
+    ["Chaque jour est une nouvelle page.", "每一天都是新的一页。", ""],
+    ["Le mieux est l'ennemi du bien.", "至善者，善之敌。", "别让完美拖垮已经够好的"],
+    ["Rome ne s'est pas faite en un jour.", "罗马不是一天建成的。", ""],
+    ["Qui ne risque rien n'a rien.", "不冒险，就一无所获。", ""],
+    ["Il faut cultiver notre jardin.", "我们得耕种自己的园子。", "伏尔泰《老实人》结语"],
+    ["Après la pluie, le beau temps.", "雨过天晴。", ""],
+    ["Vouloir, c'est pouvoir.", "有志者事竟成。", ""],
+    ["Mieux vaut tard que jamais.", "迟做总比不做好。", ""],
+    ["Chaque chose en son temps.", "凡事都有它的时节。", ""],
+    ["L'avenir appartient à ceux qui se lèvent tôt.", "未来属于早起的人。", ""],
+    ["On ne voit bien qu'avec le cœur.", "只有用心才能看得清。", "《小王子》"],
+    ["Un tiens vaut mieux que deux tu l'auras.", "一鸟在手胜过二鸟在林。", ""],
+    ["Doucement le matin, pas trop vite le soir.", "早上慢一点，晚上别太急。", "法式节奏哲学"]
+  ];
+  var weekdaysCN = ["星期日","星期一","星期二","星期三","星期四","星期五","星期六"];
+  var weekdaysFR = ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"];
+  var monthsFR = ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
+
+  /* ================= Darcie ================= */
+  var PAW = '<svg viewBox="0 0 24 24" fill="currentColor"><ellipse cx="12" cy="16.5" rx="5" ry="4.3"/><circle cx="5.8" cy="10.2" r="2.3"/><circle cx="9.9" cy="6.3" r="2.3"/><circle cx="14.1" cy="6.3" r="2.3"/><circle cx="18.2" cy="10.2" r="2.3"/></svg>';
+  var SV = '<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">';
+  var PLACE_ICONS = {
+    tower: SV + '<path d="M16 3l-5 26M16 3l5 26M12.6 21h6.8M13.9 13.5h4.2M9 29h14M14.5 24.5h3"/></svg>',
+    city: SV + '<path d="M4 28h24M6 28V15h6v13M12 28V8h8v20M20 28V12h6v16M15 12h2M15 16h2M15 20h2M8 19h2M22 16h2M22 20h2"/></svg>',
+    torii: SV + '<path d="M4 8c4 1.5 20 1.5 24 0M6 13h20M10 9v19M22 9v19M15 13v-3.5h2V13"/></svg>',
+    mountain: SV + '<path d="M3 27l9-15 5 8 4-6 8 13zM10.3 15l1.7 1.6 1.8-1.4"/></svg>',
+    water: SV + '<circle cx="22" cy="10" r="3.5"/><path d="M3 19c2.5-2.5 5-2.5 7.5 0s5 2.5 7.5 0 5-2.5 7.5 0M3 24.5c2.5-2.5 5-2.5 7.5 0s5 2.5 7.5 0 5-2.5 7.5 0"/></svg>',
+    snow: SV + '<path d="M16 4v24M5.6 10l20.8 12M5.6 22l20.8-12M13 6l3 3 3-3M13 26l3-3 3 3"/></svg>'
+  };
+
+  // Cities: [中文名, 邮戳上的当地写法, 法语名, 国家代码, 邮票图标, 邮票颜色, 到达那天的法语问候, 中文问候]
+  var CITIES = {
+    jasper: ["贾斯珀", "Jasper", "Jasper", "CA", "mountain", "#3f6b4f", "Bonjour des Rocheuses !", "落基山向你问好！"],
+    banff: ["班夫", "Banff", "Banff", "CA", "mountain", "#3f6b4f", "Coucou de Banff !", "班夫向你招手！"],
+    vancouver: ["温哥华", "Vancouver", "Vancouver", "CA", "water", "#2f5d7c", "Bonjour de la côte Ouest !", "西海岸向你问好！"],
+    sapporo: ["札幌", "札幌", "Sapporo", "JP", "snow", "#2f5d7c", "Il neige ici !", "这里下雪啦！"],
+    tokyo: ["东京", "東京", "Tokyo", "JP", "city", "#a33b2b", "Bonjour de Tokyo !", "东京向你问好！"],
+    kyoto: ["京都", "京都", "Kyoto", "JP", "torii", "#a33b2b", "Bonjour de Kyoto !", "京都向你问好！"],
+    nara: ["奈良", "奈良", "Nara", "JP", "torii", "#a33b2b", "Bonjour de Nara !", "奈良向你问好！"],
+    seoul: ["首尔", "서울", "Séoul", "KR", "city", "#5a3d6e", "Bonjour de Séoul !", "首尔向你问好！"],
+    luohe: ["漯河", "漯河", "Luohe", "CN", "water", "#7a3b2e", "Je suis chez toi !", "我到你的老家啦！"],
+    chengdu: ["成都", "成都", "Chengdu", "CN", "city", "#3f6b4f", "Bonjour de Chengdu !", "成都向你问好！"],
+    singapore: ["新加坡", "Singapore", "Singapour", "SG", "water", "#a33b2b", "Il fait chaud et humide !", "又热又潮湿！"],
+    sydney: ["悉尼", "Sydney", "Sydney", "AU", "water", "#2f5d7c", "Bonjour d'en bas !", "从地球的另一边向你问好！"],
+    capetown: ["开普敦", "Cape Town", "Le Cap", "ZA", "mountain", "#3f6b4f", "Bonjour du bout de l'Afrique !", "从非洲的尽头向你问好！"],
+    marrakech: ["马拉喀什", "Marrakech", "Marrakech", "MA", "city", "#8a5a2b", "Ça sent bon les épices.", "到处都是香料的味道。"],
+    lisbon: ["里斯本", "Lisboa", "Lisbonne", "PT", "water", "#2f5d7c", "Bonjour de Lisbonne !", "里斯本向你问好！"],
+    barcelona: ["巴塞罗那", "Barcelona", "Barcelone", "ES", "city", "#a33b2b", "Il fait doux ici !", "这里好暖和！"],
+    nice: ["尼斯", "Nice", "Nice", "FR", "water", "#2f5d7c", "Un rayon de soleil pour toi.", "给你寄一缕阳光。"],
+    rome: ["罗马", "Roma", "Rome", "IT", "city", "#8a5a2b", "Bisous de Rome !", "罗马的亲亲送给你！"],
+    florence: ["佛罗伦萨", "Firenze", "Florence", "IT", "city", "#8a5a2b", "Bonjour de Florence !", "佛罗伦萨向你问好！"],
+    venice: ["威尼斯", "Venezia", "Venise", "IT", "water", "#2f5d7c", "Bonjour de Venise !", "威尼斯向你问好！"],
+    zermatt: ["采尔马特", "Zermatt", "Zermatt", "CH", "mountain", "#a33b2b", "Il fait froid là-haut.", "山上好冷呀。"],
+    lyon: ["里昂", "Lyon", "Lyon", "FR", "city", "#7a3b2e", "Bonjour de Lyon !", "里昂向你问好！"],
+    paris: ["巴黎", "Paris", "Paris", "FR", "tower", "#7a3b2e", "Bisous de Paris !", "来自巴黎的亲亲！"],
+    msm: ["圣米歇尔山", "Mont-St-Michel", "le Mont-Saint-Michel", "FR", "water", "#7a3b2e", "Bonjour de Normandie !", "诺曼底向你问好！"],
+    amsterdam: ["阿姆斯特丹", "Amsterdam", "Amsterdam", "NL", "water", "#a33b2b", "Bonjour d'Amsterdam !", "阿姆斯特丹向你问好！"],
+    london: ["伦敦", "London", "Londres", "GB", "city", "#5a3d6e", "Il pleut, mais ça va.", "下雨了，不过还好。"],
+    reykjavik: ["雷克雅未克", "Reykjavík", "Reykjavik", "IS", "snow", "#2f5d7c", "Bonjour du Grand Nord !", "极北之地向你问好！"],
+    newyork: ["纽约", "New York", "New York", "US", "city", "#5a3d6e", "New York ne dort jamais.", "纽约从来不睡觉。"],
+    montreal: ["蒙特利尔", "Montréal", "Montréal", "CA", "city", "#7a3b2e", "Allô de Montréal !", "蒙特利尔向你问好！"],
+    quebec: ["魁北克城", "Québec", "Québec", "CA", "city", "#7a3b2e", "Salut du Québec !", "魁北克向你问好！"],
+    ottawa: ["渥太华", "Ottawa", "Ottawa", "CA", "water", "#2f5d7c", "Coucou d'Ottawa !", "渥太华向你招手！"]
+  };
+
+  // The journey, one stop per day: [城市, 景点中文, 景点法语, 法语正文, 中文正文, 今日词汇, 中文意思, 词性/提示]; null = a rest day at home
+  var TRIP = [
+    ["jasper", "玛琳湖", "Le lac Maligne", "Première étape : Jasper ! Sur le lac Maligne, il y a une toute petite île avec quelques sapins. On dirait une carte postale… alors je t'en envoie une.", "第一站：贾斯珀！玛琳湖上有一座小小的岛，岛上只有几棵松树。看起来就像一张明信片……所以我寄了一张给你。", "une carte postale", "明信片", "n.f."],
+    ["jasper", "阿萨巴斯卡瀑布", "Les chutes Athabasca", "Les chutes Athabasca font un bruit énorme. J'ai mis mes oreilles en arrière et j'ai regardé l'eau tomber pendant longtemps.", "阿萨巴斯卡瀑布的声音好大。我把耳朵往后贴，看着水往下冲，看了很久很久。", "une chute", "瀑布", "n.f. · 也有“跌倒”的意思"],
+    ["jasper", "哥伦比亚冰原", "Le champ de glace Columbia", "Aujourd'hui, j'ai marché sur un glacier ! C'est froid, c'est glissant, et ça brille comme un miroir.", "今天我在冰川上走路了！又冷又滑，亮得像一面镜子。", "glissant, glissante", "滑的", "adj."],
+    ["jasper", "暗夜星空保护区", "La réserve de ciel étoilé", "Ici, la nuit est vraiment noire. J'ai levé la tête : des milliers d'étoiles ! J'ai même vu une étoile filante, et j'ai fait un vœu pour toi.", "这里的夜晚是真正的黑。我抬起头：成千上万颗星星！我还看到了一颗流星，替你许了个愿。", "une étoile filante", "流星", "n.f. · faire un vœu = 许愿"],
+    ["banff", "路易斯湖", "Le lac Louise", "Le lac Louise est d'un vert incroyable, presque trop beau pour être vrai. J'ai bu une gorgée : l'eau est glacée !", "路易斯湖绿得不可思议，美得不像真的。我喝了一口，冰得我一激灵！", "une gorgée", "一口（喝的东西）", "n.f."],
+    ["banff", "梦莲湖", "Le lac Moraine", "Le lac Moraine est entouré de dix sommets. L'eau est si bleue qu'on dirait de la peinture. Je n'ai pas osé y mettre la patte.", "梦莲湖被十座山峰围着。湖水蓝得像颜料，我都不敢把爪子伸进去。", "oser", "敢", "v. · Je n'ose pas. = 我不敢。"],
+    ["banff", "班夫缆车", "La télécabine de Banff", "J'ai pris la télécabine jusqu'au sommet. En bas, la ville est toute petite, comme un jouet.", "我坐缆车上了山顶。往下看，整个小镇小小的，像一个玩具。", "une télécabine", "缆车", "n.f."],
+    ["banff", "班夫温泉", "Les sources chaudes", "Les chiens n'ont pas le droit d'aller dans les sources chaudes. Alors j'ai regardé les gens se baigner dans la vapeur… et j'ai rêvé d'un bain chaud.", "狗狗不能泡温泉。所以我看着大家在热气里泡澡……然后梦想着一个热水澡。", "une source chaude", "温泉", "n.f. · source = 源头"],
+    ["vancouver", "斯坦利公园", "Le parc Stanley", "Le parc Stanley est immense. J'ai fait le tour au bord de l'eau, et les écureuils noirs me regardaient du haut des arbres.", "斯坦利公园好大。我沿着海边绕了一圈，黑色的松鼠在树上看着我。", "un écureuil", "松鼠", "n.m."],
+    ["vancouver", "格兰维尔岛", "L'île Granville", "Au marché de l'île Granville, il y a des fruits, du poisson et des musiciens. J'ai trouvé une frite par terre. Quelle chance !", "格兰维尔岛的市场里有水果、有鱼、还有街头音乐家。我在地上捡到一根薯条，运气真好！", "par terre", "在地上", "短语"],
+    ["vancouver", "卡皮拉诺吊桥", "Le pont suspendu Capilano", "Le pont suspendu bouge à chaque pas. Je n'ai pas regardé en bas. Pas du tout. Bon… un petit peu.", "吊桥每走一步都在晃。我没往下看，一点都没有。好吧……看了一小眼。", "un pont suspendu", "吊桥", "n.m."],
+    ["vancouver", "煤气镇蒸汽钟", "L'horloge à vapeur de Gastown", "Toutes les quinze minutes, l'horloge à vapeur de Gastown siffle. La première fois, j'ai sursauté. La deuxième fois, j'ai aboyé avec elle !", "煤气镇的蒸汽钟每十五分钟鸣一次笛。第一次我吓了一跳，第二次我就跟着它一起叫了！", "sursauter", "吓一跳", "v."],
+    ["sapporo", "大通公园", "Le parc Odori", "Le parc Odori est tout blanc. Des gens construisent d'énormes sculptures de neige. Moi, j'ai fait un petit chien de neige.", "大通公园一片雪白。大家在堆巨大的雪雕，我堆了一只小雪狗。", "une sculpture", "雕塑", "n.f."],
+    ["sapporo", "拉面横丁", "La ruelle des ramen", "Dans la ruelle des ramen, il y a de la vapeur partout. Un cuisinier m'a donné un morceau de porc. Il fait froid dehors, mais j'ai chaud au ventre.", "拉面横丁里到处冒着热气。一位厨师给了我一小块叉烧。外面很冷，但我的肚子暖暖的。", "la vapeur", "蒸汽", "n.f."],
+    ["sapporo", "小樽运河", "Le canal d'Otaru", "À Otaru, les vieux entrepôts se reflètent dans le canal. Le soir, on allume des lampes à gaz. C'est calme, et un peu nostalgique.", "小樽的老仓库倒映在运河里。傍晚点起了煤气灯，安静，又有点怀旧。", "nostalgique", "怀旧的", "adj."],
+    ["tokyo", "涩谷十字路口", "Le carrefour de Shibuya", "Au carrefour de Shibuya, des centaines de personnes traversent en même temps. Personne ne m'a marché sur les pattes !", "涩谷十字路口，几百个人同时过马路。居然没有一个人踩到我的爪子！", "traverser", "穿过；过（马路）", "v."],
+    ["tokyo", "忠犬八公像", "La statue de Hachiko", "Devant la gare de Shibuya, il y a la statue de Hachiko, un chien qui a attendu son maître pendant dix ans. J'ai attendu à côté de lui un moment, par solidarité.", "涩谷站前有八公的雕像，它等了它的主人整整十年。我在它旁边陪它等了一会儿，表示团结。", "attendre", "等待", "v. · attendre quelqu'un = 等某人"],
+    ["tokyo", "浅草寺", "Le temple Senso-ji", "Au temple Senso-ji, il y a une énorme lanterne rouge. J'ai tiré un papier de fortune : « grande chance ». Je le garde pour toi.", "浅草寺门口有一个巨大的红灯笼。我抽了一支签：「大吉」。留给你。", "une lanterne", "灯笼", "n.f."],
+    ["tokyo", "筑地场外市场", "Le marché de Tsukiji", "Au marché de Tsukiji, ça sent le poisson grillé partout. Un monsieur m'a donné un morceau de tamagoyaki. C'est sucré !", "筑地市场到处都是烤鱼的香味。一位大叔给了我一块玉子烧，甜甜的！", "grillé, grillée", "烤的", "adj."],
+    ["tokyo", "新宿御苑", "Le jardin Shinjuku Gyoen", "Le jardin Shinjuku Gyoen est si calme. Les feuilles des érables sont rouges et jaunes ; j'ai fait une sieste dessus.", "新宿御苑好安静。枫叶红红黄黄的，我在上面睡了个午觉。", "un érable", "枫树", "n.m. · 枫叶 = une feuille d'érable"],
+    ["tokyo", "东京晴空塔", "La Skytree", "La Skytree est la plus haute tour du Japon. Du sommet, par temps clair, on voit le mont Fuji. Je l'ai vu ! Il porte un chapeau de neige.", "晴空塔是日本最高的塔。天气晴朗时，从塔顶能看到富士山。我看到了！它戴着一顶雪帽子。", "par temps clair", "天气晴朗时", "短语"],
+    ["kyoto", "伏见稻荷大社", "Le sanctuaire Fushimi Inari", "À Fushimi Inari, il y a des milliers de torii orange, l'un derrière l'autre. J'ai essayé de les compter… j'ai abandonné à quarante.", "伏见稻荷有成千上万座橙色的鸟居，一座接着一座。我想数一数……数到四十就放弃了。", "abandonner", "放弃", "v."],
+    ["kyoto", "岚山竹林", "La forêt de bambous d'Arashiyama", "Dans la forêt de bambous, le vent fait un bruit très doux. J'ai marché tout doucement pour ne pas déranger.", "竹林里，风吹过的声音特别温柔。我走得很轻很轻，怕打扰到它们。", "déranger", "打扰", "v. · Je ne vous dérange pas ?"],
+    ["kyoto", "清水寺", "Le temple Kiyomizu-dera", "Du temple Kiyomizu-dera, on voit toute la ville. J'ai bu l'eau de la source : on dit qu'elle porte bonheur.", "从清水寺可以看到整个京都。我喝了那里的泉水，听说会带来好运。", "porter bonheur", "带来好运", "短语"],
+    ["kyoto", "金阁寺", "Le Pavillon d'or", "Le Pavillon d'or brille dans l'eau comme un deuxième soleil. Même moi, je n'ai pas aboyé.", "金阁寺倒映在水里，像第二个太阳。连我都安静得一声没叫。", "aboyer", "（狗）叫", "v."],
+    ["kyoto", "祇园", "Le quartier de Gion", "À Gion, les rues sont en bois et en pierre. J'ai croisé une geiko en kimono ; elle m'a souri. J'ai remué la queue très poliment.", "祇园的街道是木头和石板铺的。我迎面遇见一位穿和服的艺伎，她对我笑了。我很有礼貌地摇了摇尾巴。", "croiser", "迎面遇见", "v."],
+    ["nara", "奈良公园的鹿", "Les cerfs du parc de Nara", "À Nara, les cerfs se promènent librement. Ils saluent en baissant la tête. J'ai salué aussi. Ensuite, un cerf a essayé de manger mon carnet !", "奈良的鹿在公园里自由地散步，它们会低头鞠躬打招呼。我也鞠了个躬。然后，一只鹿想吃掉我的小本子！", "saluer", "打招呼", "v."],
+    ["nara", "东大寺大佛", "Le Grand Bouddha du Todai-ji", "Le Grand Bouddha du Todai-ji est immense. Il y a un trou dans un pilier : si on passe dedans, on aura de la chance. Pour moi, c'était facile !", "东大寺的大佛好大好大。一根柱子上有个洞，据说钻过去就会有好运。对我来说，太容易了！", "un pilier", "柱子", "n.m."],
+    ["seoul", "景福宫", "Le palais Gyeongbokgung", "Au palais Gyeongbokgung, des gens se promènent en hanbok, les habits traditionnels. Les gardes portent des costumes très colorés. Moi, je porte mon manteau noir, comme toujours.", "景福宫里，大家穿着传统的韩服散步。守卫的衣服颜色特别鲜艳。我嘛，还是穿着我那身黑外套。", "un habit", "衣服", "n.m. · 常用复数 les habits"],
+    ["seoul", "北村韩屋村", "Le village Bukchon", "Dans le village Bukchon, les maisons ont des toits en tuiles. Il faut parler doucement, car des gens habitent ici. J'ai marché sur la pointe des pattes.", "北村的房子都是瓦片屋顶。这里有人住，要小声说话。我踮着爪子走路。", "sur la pointe des pieds", "踮着脚", "短语 · Darcie 把 pieds 换成了 pattes"],
+    ["seoul", "广藏市场", "Le marché de Gwangjang", "Au marché de Gwangjang, ça sent les galettes de haricots grillées. Une dame m'a donné un petit morceau. Elle m'a appelé « gangaji », ça veut dire « chiot ».", "广藏市场里飘着绿豆煎饼的香味。一位阿姨给了我一小块，还叫我「강아지」，就是「小狗」的意思。", "un chiot", "小狗；幼犬", "n.m."],
+    ["luohe", "沙澧河", "La rivière Shali", "Le soir, au bord de la rivière Shali, les gens dansent, chantent et se promènent. J'ai fait un tour avec eux, et j'ai regardé ta ville natale pour toi.", "傍晚的沙澧河边，大家跳舞、唱歌、散步。我跟着走了一圈，替你看了看你的老家。", "une ville natale", "故乡", "n.f."],
+    ["luohe", "许慎文化园", "Le parc Xu Shen", "Ici, on honore Xu Shen, l'homme qui a expliqué les caractères chinois il y a deux mille ans. Moi, je connais seulement « 狗 ». C'est un début !", "这里纪念许慎，两千年前给汉字作解释的人。我只认识一个「狗」字。也算是个开始！", "un caractère", "字；字符；性格", "n.m."],
+    ["luohe", "一碗胡辣汤", "Une soupe huilatang", "Ce matin, petit-déjeuner local : une soupe huilatang bien poivrée. J'ai éternué trois fois, mais j'ai tout fini !", "今天早上吃了地道的早餐：一碗胡辣汤，又辣又香。我打了三个喷嚏，但还是喝完了！", "éternuer", "打喷嚏", "v."],
+    ["luohe", "小商桥", "Le pont de Xiaoshang", "Le pont de Xiaoshang a plus de mille quatre cents ans. Les pierres sont lisses, usées par les pas. Je l'ai traversé lentement, pour bien m'en souvenir.", "小商桥已经有一千四百多年了。石头被来来往往的脚步磨得很光滑。我慢慢地走过去，想好好记住它。", "lisse", "光滑的", "adj."],
+    ["chengdu", "大熊猫基地", "La base des pandas", "J'ai rendu visite aux pandas. Ils mangent du bambou toute la journée. Pas un regard pour moi !", "去看了熊猫。它们一整天都在吃竹子，一眼都没看我！", "un bambou", "竹子", "n.m."],
+    ["chengdu", "宽窄巷子", "Les ruelles Kuanzhai", "Dans les ruelles Kuanzhai, les gens boivent du thé et écoutent l'opéra. Un monsieur nettoyait les oreilles de quelqu'un avec de longs outils. J'ai préféré garder les miennes.", "宽窄巷子里，大家喝着茶、听着川剧。一位师傅拿着长长的工具给人掏耳朵。我还是决定保护好自己的耳朵。", "une oreille", "耳朵", "n.f."],
+    ["chengdu", "火锅", "La fondue chinoise", "Ce soir, fondue chinoise ! La soupe est rouge et pleine de piment. J'ai seulement senti l'odeur, et j'ai éternué cinq fois. Les gens de Chengdu sont très courageux.", "今晚吃火锅！锅底红红的，全是辣椒。我只是闻了闻，就打了五个喷嚏。成都人真勇敢。", "le piment", "辣椒", "n.m."],
+    ["singapore", "滨海湾花园", "Les jardins de la Baie", "Aux jardins de la Baie, il y a des arbres géants en métal. Le soir, ils s'allument et changent de couleur. On dirait une forêt d'une autre planète.", "滨海湾花园里有巨大的金属树。晚上它们会亮起来，还会变颜色，像另一个星球的森林。", "une planète", "星球", "n.f."],
+    ["singapore", "鱼尾狮", "Le Merlion", "Le Merlion a une tête de lion et un corps de poisson. Il crache de l'eau toute la journée. Moi, je préfère boire mon eau tranquillement.", "鱼尾狮长着狮子的头、鱼的身子，一整天都在喷水。我还是喜欢安安静静地喝我的水。", "cracher", "喷；吐", "v."],
+    ["singapore", "小贩中心", "Un centre de colporteurs", "Au centre de colporteurs, il y a des dizaines de petits stands : riz au poulet, nouilles, satay… Je n'ai rien eu, mais j'ai tout senti.", "小贩中心里有几十个小摊：海南鸡饭、炒面、沙爹……我什么都没吃到，但每样都闻过了。", "un stand", "小摊", "n.m."],
+    ["sydney", "悉尼歌剧院", "L'Opéra de Sydney", "L'Opéra ressemble à un tas de coquillages. Des gens faisaient du kayak dans le port ; moi, je les encourageais depuis le quai.", "歌剧院像一堆贝壳。有人在港湾里划皮艇，我在岸边给他们加油。", "un coquillage", "贝壳", "n.m."],
+    ["sydney", "邦迪海滩", "La plage de Bondi", "À la plage de Bondi, l'eau est fraîche et les vagues sont grandes. Un sauveteur m'a demandé de rester loin de l'eau. D'accord, chef !", "邦迪海滩的海水凉凉的，浪很大。一个救生员让我离水远一点。好的，长官！", "une vague", "海浪", "n.f."],
+    ["sydney", "塔龙加动物园", "Le zoo de Taronga", "Au zoo de Taronga, j'ai vu un koala. Il dort vingt heures par jour ! Je crois que c'est mon nouveau modèle.", "在塔龙加动物园，我看到了一只考拉。它一天要睡二十个小时！我觉得它就是我的新榜样。", "un modèle", "榜样", "n.m."],
+    ["capetown", "桌山", "La montagne de la Table", "La montagne de la Table est plate comme une table. Ce matin, un nuage blanc était posé dessus. Les gens l'appellent « la nappe ».", "桌山平得像一张桌子。今天早上，一朵白云盖在山顶上，大家管它叫「桌布」。", "une nappe", "桌布", "n.f."],
+    ["capetown", "博尔德斯海滩的企鹅", "Les manchots de Boulders", "J'ai vu des manchots ! Ils marchent en se dandinant, exactement comme moi quand j'étais bébé.", "我看到企鹅了！它们一摇一摆地走路，跟我小时候一模一样。", "se dandiner", "一摇一摆地走", "v. 代词式"],
+    ["capetown", "好望角", "Le cap de Bonne-Espérance", "Au cap de Bonne-Espérance, deux océans se rencontrent. Le vent était si fort que j'ai dû m'asseoir derrière un rocher pour t'écrire.", "在好望角，两个大洋在这里相遇。风大得我只好躲在一块石头后面给你写信。", "un océan", "大洋", "n.m."],
+    ["marrakech", "杰马夫纳广场", "La place Jemaa el-Fna", "Sur la place Jemaa el-Fna, il y a des conteurs, des musiciens et des jus d'orange frais. Le soir, la place se remplit de fumée et de lumières.", "杰马夫纳广场上有讲故事的人、乐手，还有现榨的橙汁。到了晚上，整个广场都是烟和灯光。", "un conteur", "讲故事的人", "n.m."],
+    ["marrakech", "马约尔花园", "Le jardin Majorelle", "Le jardin Majorelle est bleu, mais un bleu très spécial : le bleu Majorelle. Avec mon pelage noir, la photo était parfaite.", "马约尔花园是蓝色的，一种很特别的蓝：马约尔蓝。配上我的黑毛，照片美极了。", "le pelage", "（动物的）毛", "n.m."],
+    ["marrakech", "麦地那集市", "Le souk de la médina", "Le souk est plein de monde et de couleurs. L'odeur des épices m'a fait éternuer dix fois de suite !", "集市里到处是人和颜色。香料的味道让我连打了十个喷嚏！", "un souk", "集市", "n.m."],
+    ["lisbon", "28 路电车", "Le tramway 28", "Le tramway 28 est jaune et très vieux. Il monte et descend les collines en grinçant. Le conducteur m'a laissé monter. Quelle chance !", "28 路电车是黄色的，很老很老。它吱吱呀呀地在山坡上爬上爬下。司机让我上车了，运气真好！", "grincer", "吱吱作响", "v."],
+    ["lisbon", "贝伦蛋挞", "Les pastéis de Belém", "À Belém, on fait les meilleurs pastéis de nata : de petites tartes à la crème, encore chaudes. La pâte est croustillante. Bon, je n'en ai eu qu'une miette.", "在贝伦，有最好吃的葡式蛋挞：热乎乎的小奶油挞，挞皮酥酥脆脆。好吧，我只吃到了一点碎屑。", "une miette", "碎屑", "n.f."],
+    ["lisbon", "阿尔法玛与法朵", "L'Alfama et le fado", "Dans l'Alfama, j'ai écouté du fado. C'est une chanson triste qui parle de « saudade », la nostalgie de quelqu'un qu'on aime. J'ai pensé à toi.", "在阿尔法玛区，我听了法朵。那是一种忧伤的歌，唱的是「saudade」——对所爱之人的思念。我想到了你。", "la nostalgie", "思念；怀念", "n.f."],
+    ["barcelona", "圣家堂", "La Sagrada Família", "La Sagrada Família est en construction depuis plus de cent quarante ans. Les colonnes ressemblent à des arbres. Je comprends le chef de projet : c'est un très long projet !", "圣家堂已经建了一百四十多年了。里面的柱子像一棵棵树。我很理解它的项目经理：这真是一个超长的项目！", "en construction", "在建中", "短语"],
+    ["barcelona", "桂尔公园", "Le parc Güell", "Au parc Güell, il y a un grand lézard en mosaïque. Je l'ai reniflé : il ne sent rien. Mais il est très beau.", "桂尔公园里有一只马赛克拼成的大蜥蜴。我闻了闻：没有味道。不过真的很好看。", "un lézard", "蜥蜴", "n.m."],
+    ["barcelona", "巴特罗之家", "La casa Batlló", "La casa Batlló n'a presque pas de lignes droites. Tout est en courbes, comme les os de mes rêves.", "巴特罗之家几乎没有一条直线。全都是弯弯曲曲的，像我梦里的骨头。", "une courbe", "曲线", "n.f."],
+    ["nice", "英国人散步大道", "La promenade des Anglais", "Sur la promenade des Anglais, la mer est d'un bleu incroyable. Les gens s'assoient sur les chaises bleues ; moi, je préfère le sol chaud.", "英国人散步大道旁的海蓝得不可思议。大家坐在蓝色的椅子上，我更喜欢暖暖的地面。", "une promenade", "散步；散步道", "n.f."],
+    ["nice", "萨雷亚市场", "Le marché du cours Saleya", "Au marché du cours Saleya, il y a des fleurs, des citrons et de la socca. J'ai goûté une miette de socca : c'est croustillant !", "萨雷亚市场里有鲜花、柠檬，还有 socca（鹰嘴豆薄饼）。我尝了一点碎屑，脆脆的！", "croustillant, croustillante", "脆的", "adj."],
+    ["nice", "城堡山", "La colline du Château", "En haut de la colline du Château, il y a une cascade et une vue sur toute la baie. Le vent sentait le sel.", "城堡山顶上有一道瀑布，能看到整个海湾。风里有大海的咸味。", "une baie", "海湾", "n.f."],
+    ["rome", "罗马斗兽场", "Le Colisée", "Le Colisée a presque deux mille ans. J'ai fait le tour en marchant très lentement, pour écouter les vieilles pierres.", "斗兽场快两千岁了。我绕着它走了一圈，走得很慢，想听听那些老石头说话。", "une pierre", "石头", "n.f."],
+    ["rome", "万神殿", "Le Panthéon", "Le Panthéon a un grand trou rond dans le toit. Quand il pleut, la pluie tombe à l'intérieur ! Aujourd'hui, c'est le soleil qui entrait.", "万神殿的屋顶上有一个大圆洞。下雨的时候，雨会落到里面来！今天照进来的是阳光。", "un toit", "屋顶", "n.m."],
+    ["rome", "特雷维喷泉", "La fontaine de Trevi", "À la fontaine de Trevi, on lance une pièce pour revenir à Rome. Je n'ai pas de pièce, alors j'ai lancé un regard plein d'espoir.", "在特雷维喷泉，扔一枚硬币就能再回罗马。我没有硬币，所以扔了一个充满希望的眼神。", "une pièce", "硬币", "n.f. · 也指“房间”"],
+    ["rome", "冰淇淋店", "Le glacier", "Il y avait la queue devant le glacier. Quelqu'un a fait tomber une boule de glace… j'ai tout nettoyé, tout de suite.", "冰淇淋店门口排着长队。有人把一球冰淇淋掉在地上……我马上全部打扫干净了。", "un glacier", "冰淇淋店；冰川", "n.m."],
+    ["florence", "圣母百花大教堂", "Le Duomo", "Le dôme du Duomo est rouge et énorme. Il a été construit il y a six cents ans, sans échafaudage au centre. Les architectes de l'époque étaient vraiment malins.", "圣母百花大教堂的圆顶又红又大。它建于六百年前，中间没有搭脚手架。那时的建筑师真聪明。", "un échafaudage", "脚手架", "n.m. · 工地常用词"],
+    ["florence", "老桥", "Le Ponte Vecchio", "Sur le Ponte Vecchio, il y a des bijouteries, directement sur le pont. Tout brille. J'ai regardé, mais je n'ai rien touché, promis.", "老桥上直接开着一家家珠宝店，到处亮闪闪的。我只是看看，什么都没碰，保证。", "une bijouterie", "珠宝店", "n.f."],
+    ["florence", "米开朗基罗广场", "La place Michel-Ange", "De la place Michel-Ange, au coucher du soleil, toute la ville devient orange. Un musicien jouait de la guitare. C'était parfait.", "日落时分从米开朗基罗广场看下去，整座城市都变成了橙色。有个乐手在弹吉他。一切都刚刚好。", "le coucher du soleil", "日落", "n.m."],
+    ["venice", "贡多拉", "Les gondoles", "À Venise, il n'y a pas de voitures, seulement des bateaux. Un gondolier m'a fait faire un petit tour. Il chantait très fort ; j'ai gardé les oreilles baissées.", "威尼斯没有汽车，只有船。一位贡多拉船夫带我转了一小圈。他唱歌好大声，我一直把耳朵耷拉着。", "un bateau", "船", "n.m."],
+    ["venice", "圣马可广场", "La place Saint-Marc", "Sur la place Saint-Marc, il y a plus de pigeons que de touristes. Ils ne m'ont pas pris au sérieux. Je ne leur en veux pas.", "圣马可广场上鸽子比游客还多。它们一点都没把我当回事。我不怪它们。", "en vouloir à quelqu'un", "怪某人", "短语"],
+    ["venice", "布拉诺岛", "L'île de Burano", "À Burano, chaque maison a sa couleur : rose, vert, jaune, bleu. Les pêcheurs les peignaient comme ça pour retrouver leur maison dans le brouillard.", "布拉诺岛上的每栋房子都有自己的颜色：粉的、绿的、黄的、蓝的。渔民们这样刷墙，是为了在雾里也能找到自己的家。", "le brouillard", "雾", "n.m."],
+    ["zermatt", "马特洪峰", "Le Cervin", "Il fait très froid au pied du Cervin. Un saint-bernard m'a offert de l'eau chaude. Il porte un petit tonneau autour du cou !", "马特洪峰底下好冷，一只圣伯纳犬请我喝了热水。它脖子上挂着一个小木桶！", "un tonneau", "小木桶", "n.m."],
+    ["zermatt", "戈尔内格拉特小火车", "Le train du Gornergrat", "J'ai pris un petit train rouge qui monte jusqu'au Gornergrat, à plus de trois mille mètres. En haut, il y avait de la neige jusqu'à mon ventre !", "我坐上一列红色小火车，一路开到三千多米高的戈尔内格拉特。山顶的雪一直没到我的肚子！", "monter", "往上走；上（车）", "v."],
+    ["lyon", "富维耶圣母院", "La basilique de Fourvière", "J'ai monté la colline de Fourvière. Tout en haut, la basilique est toute blanche et la vue sur Lyon est magnifique.", "我爬上了富维耶山。山顶的大教堂白白的，俯瞰里昂的景色美极了。", "une colline", "小山", "n.f."],
+    ["lyon", "老城穿廊", "Les traboules du Vieux Lyon", "Dans le Vieux Lyon, il y a des passages secrets entre les maisons : les traboules. Je les ai toutes explorées… enfin, presque.", "里昂老城的房子之间有秘密通道，叫 traboules（穿廊）。我全都探索了一遍……嗯，差不多吧。", "une traboule", "里昂老城的穿廊", "n.f. · 里昂方言"],
+    ["lyon", "罗讷河畔", "Les quais du Rhône", "Le long des quais du Rhône, les Lyonnais courent, font du vélo et pique-niquent. J'ai fait une petite sieste au soleil, au bord de l'eau.", "罗讷河畔，里昂人在跑步、骑车、野餐。我在河边晒着太阳打了个小盹。", "un pique-nique", "野餐", "n.m."],
+    ["lyon", "里昂小酒馆", "Un bouchon lyonnais", "Ce soir, dîner dans un bouchon lyonnais. Le patron m'a donné un bout de saucisson. Lyon, capitale de la gastronomie : c'est vrai !", "今晚在里昂的传统小酒馆（bouchon）吃饭。老板给了我一小块香肠。里昂是美食之都，真的！", "un bouchon", "里昂传统小酒馆", "n.m. · 平时是“瓶塞”"],
+    ["paris", "埃菲尔铁塔", "La tour Eiffel", "Me voici sous la tour Eiffel ! Elle est encore plus grande que dans les films. Ce soir, elle a scintillé pendant cinq minutes, rien que pour moi.", "我到埃菲尔铁塔下面啦！比电影里还要高。今晚它闪了五分钟的灯，就是为了我。", "scintiller", "闪烁", "v."],
+    ["paris", "卢浮宫", "Le Louvre", "Au Louvre, je n'ai pas pu entrer. Mais devant la pyramide de verre, j'ai fait mon plus beau sourire. La Joconde aussi sourit, paraît-il.", "卢浮宫不让狗进去。但我在玻璃金字塔前面露出了最好看的笑容。听说蒙娜丽莎也在笑。", "paraît-il", "据说", "插入语"],
+    ["paris", "蒙马特", "Montmartre", "À Montmartre, un peintre a fait mon portrait. Sur le dessin, mes oreilles sont énormes. C'est de l'art !", "在蒙马特，一位画家给我画了肖像。画上我的耳朵好大好大。这就是艺术！", "un portrait", "肖像", "n.m."],
+    ["paris", "卢森堡公园", "Le jardin du Luxembourg", "Au jardin du Luxembourg, les enfants font naviguer de petits bateaux sur le bassin. J'ai voulu en attraper un… on m'a gentiment dit non.", "卢森堡公园里，小朋友们在水池里放小帆船。我想抓一只……被人很温柔地拒绝了。", "un bassin", "水池", "n.m."],
+    ["paris", "塞纳河旧书摊", "Les bouquinistes de la Seine", "Le long de la Seine, les bouquinistes vendent de vieux livres. J'en ai reniflé un : il sentait la poussière et l'histoire.", "塞纳河边的旧书摊卖着老书。我闻了一本：有灰尘的味道，也有历史的味道。", "un bouquiniste", "旧书商", "n.m."],
+    ["paris", "凡尔赛宫", "Le château de Versailles", "Le château de Versailles est immense, et la galerie des Glaces brille de partout. Dans les jardins, j'ai couru le long du Grand Canal, comme un membre de la famille royale.", "凡尔赛宫好大，镜厅到处闪闪发光。在花园里，我沿着大运河跑了一圈，感觉自己像王室成员一样。", "une glace", "镜子；冰；冰淇淋", "n.f. · galerie des Glaces = 镜厅"],
+    ["paris", "塞纳河游船", "Un bateau-mouche sur la Seine", "Ce soir, j'ai pris un bateau-mouche sur la Seine. On passe sous les ponts, et les gens sur les quais nous font coucou. J'ai fait coucou aussi, avec la queue.", "今晚我坐了塞纳河上的游船。船从一座座桥下经过，岸边的人向我们挥手。我也挥了挥——用尾巴。", "faire coucou", "挥手打招呼", "短语"],
+    ["paris", "圣心大教堂", "Le Sacré-Cœur", "Du haut des marches du Sacré-Cœur, tout Paris est à mes pattes. Dernier soir ici… demain, direction le Mont-Saint-Michel !", "站在圣心大教堂的台阶顶上，整个巴黎都在我脚下。在这里的最后一晚……明天去圣米歇尔山！", "une marche", "台阶；步行", "n.f."],
+    ["msm", "潮汐", "Les marées", "Le Mont-Saint-Michel est une île… seulement à marée haute ! À marée basse, on peut marcher sur le sable tout autour. La mer revient très vite, alors j'ai couru me mettre à l'abri.", "圣米歇尔山只在涨潮的时候是一座岛！退潮时，可以在四周的沙滩上走路。海水回来得非常快，所以我赶紧跑到了安全的地方。", "la marée", "潮汐", "n.f. · marée haute / basse = 涨潮 / 退潮"],
+    ["msm", "修道院", "L'abbaye", "Pour arriver à l'abbaye, il faut monter des centaines de marches. Tout en haut : le silence, le vent, et la mer à perte de vue.", "要到修道院，得爬几百级台阶。在最顶上，只有安静、风，和一望无际的大海。", "à perte de vue", "一望无际", "短语"],
+    ["amsterdam", "运河", "Les canaux", "Amsterdam a plus de canaux que Venise ! Les maisons sont étroites et un peu penchées, comme si elles se reposaient les unes sur les autres.", "阿姆斯特丹的运河比威尼斯还多！房子窄窄的，还有点歪，像是互相靠着在休息。", "étroit, étroite", "窄的", "adj."],
+    ["amsterdam", "自行车", "Les vélos", "Ici, il y a plus de vélos que d'habitants. Quelqu'un m'a mis dans le panier de son vélo pour traverser la ville. Le vent dans les oreilles, c'était génial !", "这里的自行车比人还多。有人把我放进他的车筐里，载着我穿过了整座城市。风吹着耳朵，太棒了！", "un panier", "筐；篮子", "n.m."],
+    ["amsterdam", "风车村", "Les moulins de Zaanse Schans", "À Zaanse Schans, les moulins à vent tournent lentement. Dans une petite boutique, on fabriquait des sabots en bois. J'en ai essayé un. Trop grand !", "在风车村，风车慢慢地转着。一家小店在做木鞋，我试穿了一只。太大了！", "un moulin à vent", "风车", "n.m."],
+    ["london", "大本钟", "Big Ben", "Big Ben a sonné midi juste au-dessus de ma tête. BONG ! J'ai sauté en l'air. Les touristes ont ri, et moi aussi.", "大本钟就在我头顶敲响了十二点。咚！我吓得跳了起来。游客们都笑了，我也笑了。", "sonner", "（钟）敲响；（铃）响", "v."],
+    ["london", "海德公园", "Hyde Park", "Il pleut sans arrêt. À Hyde Park, j'ai poursuivi un pigeon très distingué ; il n'était même pas fâché.", "雨一直下个不停。我在海德公园追了一只很有绅士风度的鸽子，它一点都没生气。", "poursuivre", "追", "v."],
+    ["london", "博罗市场", "Le marché de Borough", "Au marché de Borough, il y a des fromages, des pâtisseries et des tourtes. Un marchand m'a donné un bout de saucisse. Les Anglais sont très gentils avec les chiens.", "在博罗市场，有奶酪、点心和肉派。一个摊主给了我一小段香肠。英国人对狗狗真好。", "un marchand", "商贩", "n.m."],
+    ["london", "塔桥", "Le Tower Bridge", "Le Tower Bridge s'est ouvert en deux pour laisser passer un grand bateau. J'ai attendu, j'ai regardé, et j'ai trouvé ça magique.", "塔桥从中间打开，让一艘大船通过。我等着、看着，觉得太神奇了。", "s'ouvrir", "打开", "v. 代词式"],
+    ["reykjavik", "哈尔格林姆斯教堂", "L'église Hallgrímskirkja", "L'église Hallgrímskirkja ressemble à une montagne de basalte. Le vent est si fort que mes oreilles restent dressées.", "哈尔格林姆斯教堂像一座玄武岩的山。风大得让我的耳朵一直竖着。", "dressé, dressée", "竖起的", "adj."],
+    ["reykjavik", "极光", "Les aurores boréales", "Cette nuit, le ciel est devenu vert, puis violet. Les aurores boréales dansaient. J'ai oublié d'aboyer.", "今晚天空先变成绿色，又变成紫色。极光在跳舞。我都忘了叫。", "une aurore boréale", "北极光", "n.f."],
+    ["reykjavik", "史托克间歇泉", "Le geyser Strokkur", "Le geyser Strokkur jaillit toutes les cinq minutes : l'eau monte jusqu'à vingt mètres ! La première fois, j'ai reculé de trois pas.", "史托克间歇泉每五分钟喷一次，水能喷到二十米高！第一次我往后退了三步。", "jaillir", "喷涌", "v."],
+    ["newyork", "中央公园", "Central Park", "À Central Park, je me suis fait un ami : un corgi qui dit qu'il habite sur la Cinquième Avenue.", "在中央公园，我交了一个朋友：一只柯基，它说它住在第五大道。", "se faire un ami", "交到朋友", "短语"],
+    ["newyork", "自由女神像", "La statue de la Liberté", "La statue de la Liberté a été offerte par la France. Elle est française, comme mes leçons ! Je l'ai saluée depuis le ferry.", "自由女神像是法国送的。她是法国的，跟我学的课一样！我在渡轮上向她打了招呼。", "offrir", "赠送", "v."],
+    ["newyork", "布鲁克林大桥", "Le pont de Brooklyn", "J'ai traversé le pont de Brooklyn à pied. Derrière moi, les gratte-ciel de Manhattan touchaient presque les nuages.", "我走路过了布鲁克林大桥。身后，曼哈顿的摩天大楼几乎要碰到云了。", "un gratte-ciel", "摩天大楼", "n.m. · gratter（刮）+ ciel（天）"],
+    ["newyork", "时代广场", "Times Square", "À Times Square, il fait jour même la nuit, à cause des écrans géants. Il y a tellement de bruit que je n'ai pas entendu mes propres aboiements.", "时代广场的巨型屏幕让夜晚也像白天一样亮。到处都太吵了，我连自己的叫声都听不见。", "un écran", "屏幕", "n.m."],
+    ["montreal", "皇家山", "Le mont Royal", "Du belvédère du mont Royal, on voit toute la ville et le fleuve Saint-Laurent. Des écureuils m'ont observé, mais j'ai gardé mon calme.", "从皇家山的观景台可以看到整座城市和圣劳伦斯河。几只松鼠盯着我看，不过我保持了冷静。", "un belvédère", "观景台", "n.m."],
+    ["montreal", "蒙特利尔贝果", "Les bagels de Montréal", "Les bagels de Montréal sont cuits au feu de bois. Ils sont plus petits et plus sucrés qu'à New York. Et la boutique est ouverte jour et nuit !", "蒙特利尔的贝果是用柴火烤的，比纽约的小一点、甜一点。而且这家店是日日夜夜都开着的！", "jour et nuit", "日日夜夜；全天", "短语"],
+    ["montreal", "老港", "Le Vieux-Port", "Au Vieux-Port, il y a une patinoire en hiver. Les gens patinent en musique. Moi, j'ai glissé sans patins. Ça compte ?", "老港冬天有一个溜冰场，大家跟着音乐溜冰。我没穿冰鞋也滑了一下。这算不算？", "une patinoire", "溜冰场", "n.f."],
+    ["quebec", "芳堤娜城堡", "Le Château Frontenac", "Le Château Frontenac domine le fleuve Saint-Laurent. On dirait un château de conte de fées, mais c'est un hôtel !", "芳堤娜城堡俯瞰着圣劳伦斯河。看起来像童话里的城堡，其实是一家酒店！", "un conte de fées", "童话", "n.m."],
+    ["quebec", "小香普兰街区", "Le Petit-Champlain", "Dans le quartier du Petit-Champlain, tout le monde me parle en français. J'ai compris une phrase : « bon chien ». C'est un compliment !", "在小香普兰街区，大家都跟我说法语。我听懂了一句：«bon chien»（好狗狗）。他们在夸我！", "un compliment", "夸奖", "n.m."],
+    ["quebec", "蒙莫朗西瀑布", "La chute Montmorency", "La chute Montmorency est plus haute que les chutes du Niagara ! J'ai traversé le pont juste au-dessus. Mon cœur battait très fort !", "蒙莫朗西瀑布比尼亚加拉瀑布还要高！我走过了瀑布正上方的桥，心跳得好快！", "battre", "（心）跳；打", "v."],
+    ["ottawa", "国会山", "La colline du Parlement", "Sur la colline du Parlement, j'ai regardé la relève de la garde. Les soldats ne bougent pas du tout. Moi, j'ai remué la queue.", "在国会山看了卫兵换岗。士兵们一动不动，我就一直在摇尾巴。", "la relève de la garde", "卫兵换岗", "n.f."],
+    ["ottawa", "里多运河", "Le canal Rideau", "Petit tour au canal Rideau : les canards font toujours autant de bruit. J'ai dit bonjour à Algonquin pour toi.", "去里多运河转了一圈，鸭子还是那么吵。我替你向 Algonquin 问了好。", "un canard", "鸭子", "n.m."],
+    ["ottawa", "拜沃德市场", "Le marché By", "Au marché By, j'ai senti l'odeur des queues de castor. C'est sucré et chaud… Dernière étape : demain, je rentre à la maison !", "在拜沃德市场闻到了海狸尾巴（BeaverTails）的香味，又甜又暖……最后一站啦，明天我就回家！", "une queue de castor", "海狸尾巴（加拿大炸面饼）", "n.f."],
+    null
+  ];
+  var TRIP_START = 20768;   // 2026-11-11, the day Darcie set off (days since 1970-01-01)
+
+  var GREETS = [["Coucou !", "嗨！"], ["Devine où je suis !", "猜猜我在哪！"], ["Encore une belle journée !", "又是美好的一天！"], ["Je pense à toi.", "我在想你。"], ["Bonjour bonjour !", "你好你好！"]];
+
+  // Daytime notes [French, Chinese]: {zh}/{fr} = city, {spot}/{spotfr} = today's sight
+  // Darcie's messages on the home screen: French only ({afr} = "à Tokyo", "au Cap", "au Mont-Saint-Michel")
+  var TRAVEL_MSG = {
+    morning: [
+      ["Aujourd'hui, je vais voir {spotfr}. J'ai hâte !", ""],
+      ["Bonjour ! Réveil {afr}, et première pensée pour toi.", ""],
+      ["Debout ! Le matin est si calme {afr}. Je vais renifler un peu.", ""]
+    ],
+    day: [
+      ["Il fait beau {afr}. J'ai déjà fait plein de pas.", ""],
+      ["Je me suis fait un ami {afr} : un autre petit chien !", ""],
+      ["C'est super, {fr}… mais tu me manques un peu.", ""],
+      ["J'ai perdu mon chemin {afr}… mon nez a retrouvé la route !", ""]
+    ],
+    evening: [
+      ["Il y a du monde {afr} ce soir. J'ai trouvé un coin tranquille.", ""],
+      ["J'ai beaucoup marché {afr} aujourd'hui. Mes pattes n'en peuvent plus !", ""],
+      ["Bonne nuit ! Je dors {afr} ce soir. À demain !", ""]
+    ]
+  };
+  var HOME_MSG = {
+    morning: [["Me voilà à la maison ! Aujourd'hui, je reste avec toi.", ""], ["Bonjour ! Ça fait du bien de dormir dans mon panier.", ""]],
+    day: [["On fait une sieste cet après-midi ?", ""], ["Pendant le voyage, je pensais tout le temps à toi.", ""]],
+    evening: [["On va se promener ce soir ? Juste autour de la maison.", ""], ["À demain ! Je repars… première étape : Jasper.", ""]]
+  };
+  var TRAVEL_IDLE = { late: "dodo {afr}", morning: "réveil {afr}", day: "balade · {spotfr}", evening: "nuit {afr}" };
+  var HOME_IDLE = {
+    late: ["dodo à la maison"],
+    morning: ["s'étire devant la porte", "attend près de sa gamelle"],
+    day: ["au soleil près de la fenêtre", "sieste sur le canapé zzz"],
+    evening: ["à tes pieds", "en boule près du radiateur"]
+  };
+  var BEFORE_IDLE = "prépare son sac pour partir";
+
+  // Seeded random numbers, so Darcie's day is the same after a reload
+  function Rng(seed) {
+    var s = seed % 2147483647; if (s <= 0) s += 2147483646;
+    this.next = function () { s = s * 16807 % 2147483647; return (s - 1) / 2147483646; };
+  }
+  var STOPS_PER_LOOP = 0;
+  (function () { for (var i = 0; i < TRIP.length; i++) if (TRIP[i]) STOPS_PER_LOOP++; })();
+
+  // Where Darcie is on a given day
+  function stopOf(dn) {
+    var k = dn - TRIP_START;
+    if (k < 0) return { before: true, word: ["partir", "出发", "v. · Darcie va bientôt partir !"] };
+    var idx = k % TRIP.length, loops = Math.floor(k / TRIP.length), t = TRIP[idx];
+    if (!t) return { home: true, word: ["rentrer", "回家；回来", "v. · Je rentre à la maison."] };
+    var no = loops * STOPS_PER_LOOP, i;
+    for (i = 0; i <= idx; i++) if (TRIP[i]) no++;
+    var prev = idx > 0 ? TRIP[idx - 1] : null;
+    return { city: CITIES[t[0]], spot: t[1], spotFr: t[2], bodyFr: t[3], bodyZh: t[4], word: [t[5], t[6], t[7]], idx: idx, no: no, arrival: !prev || prev[0] !== t[0] };
+  }
+  function slotOf(m) { return m < 5 * 60 ? "late" : (m < 11 * 60 ? "morning" : (m < 17 * 60 ? "day" : (m < 22 * 60 ? "evening" : "late"))); }
+  function fill(s, st) {
+    if (!st.city) return s;
+    var fr = st.city[2], afr = /^le /i.test(fr) ? "au " + fr.slice(3) : "à " + fr;
+    return s.replace("{zh}", st.city[0]).replace("{afr}", afr).replace("{fr}", fr).replace("{spot}", st.spot).replace("{spotfr}", /^(Le |La |Les |L'|Un |Une |Des )/.test(st.spotFr) ? st.spotFr.charAt(0).toLowerCase() + st.spotFr.slice(1) : st.spotFr);
+  }
+
+  var planCache = {};
+  function plan(dn) {
+    if (planCache[dn]) return planCache[dn];
+    var r = new Rng(dn * 9973 + 1234567); r.next(); r.next();
+    var st = stopOf(dn), p = { stop: st, card: null, msgs: [], greet: null };
+    if (st.city) {
+      p.card = 16 * 60 + Math.floor(r.next() * 270);              // postcard arrives 16:00–20:30
+      p.greet = st.arrival ? [st.city[6], st.city[7]] : GREETS[Math.floor(r.next() * GREETS.length)];
+    }
+    if (!st.before) {
+      var pools = st.city ? TRAVEL_MSG : HOME_MSG;
+      var n = 3 + Math.floor(r.next() * 2), used = {}, tries = 0;
+      while (p.msgs.length < n && tries < 40) {
+        tries++;
+        var t = 7 * 60 + Math.floor(r.next() * 14.5 * 60);         // 07:00–21:30
+        var pool = pools[slotOf(t)];
+        var k = Math.floor(r.next() * pool.length);
+        if (p.card !== null && t >= p.card - 30 && t < p.card + 90) continue;
+        if (used[slotOf(t) + k]) continue;
+        used[slotOf(t) + k] = 1;
+        p.msgs.push({ t: t, fr: fill(pool[k][0], st), zh: fill(pool[k][1], st) });
+      }
+      p.msgs.sort(function (a, b) { return a.t - b.t; });
+    }
+    planCache[dn] = p;
+    return p;
+  }
+
+  // What Darcie is doing right now (a message, or a short status line)
+  function darcieState(now) {
+    var dn = dayNum(now), m = now.getHours() * 60 + now.getMinutes(), p = plan(dn), st = p.stop, i;
+    for (i = 0; i < p.msgs.length; i++) {
+      var g = p.msgs[i];
+      if (m >= g.t && m < g.t + 45) return { kind: "msg", t: g.t, fr: g.fr, zh: g.zh, stop: st, isNew: m - g.t < 10 };
+    }
+    var idle = idleText(now, st, m);
+    // no message right now: keep showing the latest thing she said today
+    for (i = p.msgs.length - 1; i >= 0; i--) {
+      if (p.msgs[i].t <= m && m - p.msgs[i].t < 180) return { kind: "recent", t: p.msgs[i].t, fr: p.msgs[i].fr, zh: p.msgs[i].zh, stop: st, text: idle };
+    }
+    return { kind: "idle", text: idle };
+  }
+  function idleText(now, st, m) {
+    if (st.before) return BEFORE_IDLE;
+    var slot = slotOf(m);
+    if (st.city) return fill(TRAVEL_IDLE[slot], st);
+    var pool = HOME_IDLE[slot];
+    return pool[now.getHours() % pool.length];
+  }
+
+  // Today's postcard counts as "new" for 4 hours after it arrives
+  function freshCard(now) {
+    var dn = dayNum(now), m = now.getHours() * 60 + now.getMinutes(), p = plan(dn);
+    return (p.card !== null && m >= p.card && m < p.card + 240) ? dn : null;
+  }
+
+  // Postcards received so far (since the trip began), newest first
+  function album(now) {
+    var today = dayNum(now), m = now.getHours() * 60 + now.getMinutes(), list = [], d, p;
+    for (d = today; d >= TRIP_START && d > today - 120; d--) {
+      p = plan(d);
+      if (p.card !== null && (d < today || m >= p.card)) list.push(d);
+    }
+    return list;
+  }
+
+  var CARD_ICON = '<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="24" height="17" rx="1.5"/><rect x="20" y="11" width="5" height="6"/><path d="M8 14h8M8 18h8M8 22h5"/></svg>';
+
+  // Darcie's little face: a black puppy on a cream badge
+  var DOG = '<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="16" fill="#f3ead9"/><ellipse cx="7.6" cy="15.2" rx="3.6" ry="6.4" transform="rotate(18 7.6 15.2)" fill="#1b1a1f"/><ellipse cx="24.4" cy="15.2" rx="3.6" ry="6.4" transform="rotate(-18 24.4 15.2)" fill="#1b1a1f"/><circle cx="16" cy="17" r="9" fill="#26242b"/><ellipse cx="16" cy="21" rx="4.6" ry="3.6" fill="#3a3740"/><circle cx="12.2" cy="15.6" r="1.9" fill="#fff"/><circle cx="19.8" cy="15.6" r="1.9" fill="#fff"/><circle cx="12.5" cy="15.9" r="1.25" fill="#111"/><circle cx="19.5" cy="15.9" r="1.25" fill="#111"/><circle cx="12.9" cy="15.4" r="0.45" fill="#fff"/><circle cx="19.9" cy="15.4" r="0.45" fill="#fff"/><ellipse cx="16" cy="19.4" rx="1.7" ry="1.2" fill="#111"/><path d="M16 20.6v1.1M14.5 21.9c.8.7 2.2.7 3 0" stroke="#111" stroke-width=".7" fill="none" stroke-linecap="round"/><path d="M15.1 22.2q.9 1.9 1.8 0z" fill="#f28b9b"/><circle cx="10.4" cy="19.4" r="1.4" fill="#f28b9b" opacity=".45"/><circle cx="21.6" cy="19.4" r="1.4" fill="#f28b9b" opacity=".45"/></svg>';
+
+  function darcieHTML(now) {
+    var st = darcieState(now), count = album(now).length, fresh = freshCard(now);
+    var status, msg = "";
+    if (st.kind === "msg") {
+      status = hm(st.t) + " · " + (st.stop.city ? st.stop.city[2] : "à la maison");
+      msg = '<div class="dz-bubble"><span class="dz-fr">' + nbsp(st.fr) + '</span></div>';
+    } else if (st.kind === "recent") {
+      status = st.text;
+      msg = '<div class="dz-bubble old"><span class="dz-fr">' + nbsp(st.fr) + '</span><span class="t">' + hm(st.t) + '</span></div>';
+    } else {
+      status = st.text;
+    }
+    var btn;
+    if (fresh !== null) {
+      var c = plan(fresh).stop.city;
+      btn = '<div class="pc-btn" onclick="openCard(' + fresh + ', false)" style="color:' + c[5] + '">' + PLACE_ICONS[c[4]] + '<span class="pc-count new">新</span></div>';
+    } else {
+      btn = '<div class="pc-btn" onclick="openAlbum()">' + CARD_ICON + (count ? '<span class="pc-count">' + count + '</span>' : '') + '</div>';
+    }
+    return '<div class="dz-row"><div class="dz-main">' +
+      '<div class="dz-head"><span class="dog">' + DOG + '</span><span class="dz-name">Darcie</span><span class="dz-status">' + status + '</span>' +
+      (st.isNew ? '<span class="dz-new">新</span>' : '') + '</div>' +
+      msg +
+      '</div>' + btn + '</div>';
+  }
+
+  // English names of the stops, same order as TRIP (shown small on the postcard photo)
+  var SPOT_EN = ["Maligne Lake", "Athabasca Falls", "Columbia Icefield", "Dark Sky Preserve", "Lake Louise", "Moraine Lake", "Banff Gondola", "Banff Upper Hot Springs", "Stanley Park", "Granville Island", "Capilano Suspension Bridge", "Gastown Steam Clock", "Odori Park", "Ramen Alley", "Otaru Canal", "Shibuya Crossing", "Hachiko Statue", "Senso-ji Temple", "Tsukiji Outer Market", "Shinjuku Gyoen", "Tokyo Skytree", "Fushimi Inari Shrine", "Arashiyama Bamboo Grove", "Kiyomizu-dera", "Kinkaku-ji, the Golden Pavilion", "Gion", "Nara Park Deer", "Great Buddha of Todai-ji", "Gyeongbokgung Palace", "Bukchon Hanok Village", "Gwangjang Market", "Shali River", "Xu Shen Cultural Park", "A Bowl of Hulatang", "Xiaoshang Bridge", "Giant Panda Base", "Kuanzhai Alley", "Sichuan Hot Pot", "Gardens by the Bay", "The Merlion", "A Hawker Centre", "Sydney Opera House", "Bondi Beach", "Taronga Zoo", "Table Mountain", "Boulders Beach Penguins", "Cape of Good Hope", "Jemaa el-Fna Square", "Majorelle Garden", "Medina Souk", "Tram 28", "Pastéis de Belém", "Alfama and Fado", "Sagrada Família", "Park Güell", "Casa Batlló", "Promenade des Anglais", "Cours Saleya Market", "Castle Hill", "The Colosseum", "The Pantheon", "Trevi Fountain", "A Gelato Shop", "Florence Cathedral", "Ponte Vecchio", "Piazzale Michelangelo", "Gondolas", "St Mark's Square", "Burano Island", "The Matterhorn", "Gornergrat Railway", "Fourvière Basilica", "Traboules of Old Lyon", "Rhône Riverbanks", "A Lyon Bouchon", "Eiffel Tower", "The Louvre", "Montmartre", "Luxembourg Gardens", "Seine Booksellers", "Palace of Versailles", "Seine River Cruise", "Sacré-Cœur", "The Tides", "The Abbey", "The Canals", "Bicycles", "Zaanse Schans Windmills", "Big Ben", "Hyde Park", "Borough Market", "Tower Bridge", "Hallgrímskirkja", "Northern Lights", "Strokkur Geyser", "Central Park", "Statue of Liberty", "Brooklyn Bridge", "Times Square", "Mount Royal", "Montreal Bagels", "Old Port", "Château Frontenac", "Petit-Champlain", "Montmorency Falls", "Parliament Hill", "Rideau Canal", "ByWard Market"];
+
+  // French typography: keep ! ? : ; glued to the word before them
+  function nbsp(t) { return String(t).replace(/ ([!?:;\u00bb])/g, "\u00a0$1"); }
+  function cardHTML(dn, fromAlbum) {
+    var p = plan(dn), st = p.stop, c = st.city, day = dateOf(dn), ink = c[5];
+    var dateTxt = "reçue le " + (day.getDate() === 1 ? "1er" : day.getDate()) + " " + monthsFR[day.getMonth()] + " · " + hm(p.card);
+    var markDate = pad(day.getDate()) + "·" + pad(day.getMonth() + 1) + "·" + String(day.getFullYear()).slice(2);
+    return '<div class="pc" onclick="event.stopPropagation()">' +
+      photoBanner(st.idx, '<div class="pc-cap"><div class="pc-place">' + st.spotFr + '</div>' +
+        '<div class="pc-local">' + st.spot + '<span class="pc-en">' + (SPOT_EN[st.idx] || "") + '</span></div></div>') +
+      '<div class="pc-text">' +
+        '<div class="pc-head" style="color:' + ink + '">' +
+          '<div class="pc-eyebrow">CARTE POSTALE · N° ' + st.no + '</div>' +
+          '<div class="pc-greet">' + nbsp(p.greet[0]) + '</div>' +
+          '<div class="pc-greet-zh">' + p.greet[1] + '</div>' +
+          '<div class="pc-stamp"><div class="pc-stamp-in">' + PLACE_ICONS[c[4]] + '<div class="pc-stamp-txt">' + c[3] + '</div></div></div>' +
+          '<div class="pc-mark"><b>' + c[1].toUpperCase().slice(0, 12) + '</b>' + markDate + '</div>' +
+        '</div>' +
+        '<div class="pc-rule" style="background:' + ink + '"></div>' +
+        '<div class="pc-body-fr">' + nbsp(st.bodyFr) + '</div>' +
+        '<div class="pc-body">' + st.bodyZh + '</div>' +
+        '<div class="pc-sign">— Darcie<span class="paw">' + PAW + '</span></div>' +
+        '<div class="pc-foot"><span>' + dateTxt + '</span>' +
+          '<span class="ov-btn" style="color:' + ink + '" onclick="openAlbum()">' + (fromAlbum ? '‹ Carnet' : 'Carnet ›') + '</span>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
+
+  function albumHTML(now) {
+    var list = album(now), runs = [], i, st, c, run = null, cities = {}, nc = 0;
+    for (i = 0; i < list.length; i++) {
+      st = plan(list[i]).stop; c = st.city;
+      if (!cities[c[1]]) { cities[c[1]] = 1; nc++; }
+      if (!run || run.key !== c[1]) { run = { key: c[1], city: c, days: [] }; runs.push(run); }
+      run.days.push(list[i]);
+    }
+    // French dates: "19 — 20 décembre", "28 novembre — 2 décembre"
+    function frDay(d) { var x = dateOf(d); return (x.getDate() === 1 ? "1er" : x.getDate()) + " " + monthsFR[x.getMonth()]; }
+    function frSpan(a, b) {
+      var x = dateOf(a), y = dateOf(b);
+      if (a === b) return frDay(a);
+      return (x.getMonth() === y.getMonth() ? (x.getDate() === 1 ? "1er" : x.getDate()) : frDay(a)) + " — " + frDay(b);
+    }
+    var html = "", r, k, d, acc, first = true;
+    for (r = 0; r < runs.length; r++) {
+      c = runs[r].city; acc = ACCENTS[c[5]] || "#e6b26a";
+      var ds = runs[r].days, span = frSpan(ds[ds.length - 1], ds[0]);
+      html += '<div class="alb-ch">' +
+        '<div class="alb-chno" style="color:' + acc + '">' + pad(runs.length - r) + '</div>' +
+        '<div class="alb-chmain"><div class="alb-chname">' + c[2] + '</div>' +
+        '<div class="alb-chdate">' + span + ' · ' + ds.length + (ds.length > 1 ? ' cartes' : ' carte') + '</div></div>' +
+        '<div class="alb-chico" style="color:' + acc + '">' + PLACE_ICONS[c[4]] + '</div></div><div class="alb-grid">';
+      for (k = 0; k < ds.length; k++) {
+        d = ds[k]; st = plan(d).stop; var day = dateOf(d);
+        html += '<div class="alb-card' + (first ? ' big' : '') + '" onclick="openCard(' + d + ', true)">' +
+          '<div class="alb-ph" style="background-image:url(photos/thumbs/' + st.idx + '.jpg)">' +
+            (first ? '<div class="alb-tag" style="background:' + acc + '">DERNIÈRE</div>' : '') +
+            '<div class="alb-cap"><div class="alb-spot">' + st.spotFr + '</div>' +
+            '<div class="alb-date">N° ' + st.no + ' · ' + (first ? weekdaysFR[day.getDay()] + ' ' : '') + frDay(d) + '</div></div>' +
+          '</div></div>';
+        first = false;
+      }
+      html += '</div>';
+    }
+    var today = stopOf(dayNum(now)), tacc = today.city ? (ACCENTS[today.city[5]] || "#e6b26a") : "#e6b26a";
+    var where = today.before ? "Darcie se prépare à partir." : (today.city ? 'Aujourd\'hui, Darcie est à <b style="color:' + tacc + '">' + today.city[2] + '</b> · <i>' + today.spotFr + '</i>' : "Aujourd'hui, Darcie se repose à la maison.");
+    var pct = Math.min(100, Math.round(list.length / STOPS_PER_LOOP * 100));
+    return '<div class="alb" onclick="event.stopPropagation()">' +
+      '<div class="alb-x" onclick="closeOv()">×</div>' +
+      '<div class="alb-hero"><div class="alb-top">' +
+        '<div class="alb-eyebrow">CARNET DE VOYAGE</div>' +
+        '<div class="alb-title">Cartes postales</div>' +
+        '<div class="alb-title-zh">DARCIE 的明信片册</div>' +
+      '</div><div class="alb-meta">' +
+      '<div class="alb-stats">' +
+        '<div class="alb-stat"><b>' + list.length + '</b><span>cartes</span></div>' +
+        '<div class="alb-stat"><b>' + nc + '</b><span>villes</span></div>' +
+        '<div class="alb-stat"><b>' + pct + '%</b><span>du tour du monde</span></div>' +
+      '</div>' +
+      '<div class="alb-prog"><i style="width:' + pct + '%;background:' + tacc + '"></i></div>' +
+      '<div class="alb-now">' + where + '</div></div></div>' +
+      (html || '<div class="alb-empty">还没有明信片。Darcie 刚出发，傍晚第一张就会寄到。</div>') +
+    '</div>';
+  }
+
+
+
+  function showOv(html, isCard, extra) {
+    $("ovInner").innerHTML = html;
+    $("ov").className = "ov" + (isCard ? " card" : "") + (extra ? " " + extra : "");
+    $("ov").style.display = "block"; $("ov").scrollTop = 0;
+    if (isCard) fitCard();
+  }
+  // Landscape postcard: step the text down until everything fits on one screen
+  function fitCard() {
+    var pc = document.querySelector("#ovInner .pc"), tx = document.querySelector("#ovInner .pc-text");
+    if (!pc || !tx) return;
+    pc.className = "pc";
+    if (window.innerWidth <= window.innerHeight) return;
+    var steps = ["s1", "s1 s2", "s1 s2 s3", "s1 s2 s3 s4"], i;
+    for (i = 0; i < steps.length && tx.scrollHeight > tx.clientHeight + 1; i++) pc.className = "pc " + steps[i];
+  }
+  window.addEventListener("resize", function () { if ($("ov").style.display === "block") fitCard(); safe(fit); }, false);
+  // Swipe between postcards: left = an older card, right = a newer one
+  var cardList = [], cardPos = -1, cardFromAlbum = false;
+  function openCard(dn, fromAlbum) {
+    cardList = album(new Date()); cardPos = -1; cardFromAlbum = !!fromAlbum;
+    for (var i = 0; i < cardList.length; i++) if (cardList[i] === dn) cardPos = i;
+    showOv(cardHTML(dn, fromAlbum), true);
+  }
+  function moveCard(el, x, animate) {
+    var t = animate ? "-webkit-transform 0.25s ease-out, opacity 0.25s" : "none";
+    el.style.webkitTransition = t; el.style.transition = t;
+    el.style.webkitTransform = "translate3d(" + x + "px,0,0)"; el.style.transform = "translate3d(" + x + "px,0,0)";
+  }
+  (function () {
+    var ov = $("ov"), x0 = 0, y0 = 0, dx = 0, horiz = null, tracking = false;
+    function pc() { return document.querySelector("#ovInner .pc"); }
+    ov.addEventListener("touchstart", function (e) {
+      if (ov.className.indexOf("card") < 0 || cardPos < 0 || e.touches.length !== 1) return;
+      tracking = true; horiz = null; dx = 0;
+      x0 = e.touches[0].pageX; y0 = e.touches[0].pageY;
+    }, false);
+    ov.addEventListener("touchmove", function (e) {
+      if (!tracking) return;
+      var mx = e.touches[0].pageX - x0, my = e.touches[0].pageY - y0;
+      if (horiz === null && (Math.abs(mx) > 8 || Math.abs(my) > 8)) horiz = Math.abs(mx) > Math.abs(my);
+      if (!horiz) return;
+      e.preventDefault();
+      dx = mx;
+      var edge = (dx < 0 && cardPos >= cardList.length - 1) || (dx > 0 && cardPos <= 0);
+      var el = pc(); if (el) moveCard(el, edge ? dx / 4 : dx, false);   // resist at the ends
+    }, false);
+    ov.addEventListener("touchend", function () {
+      if (!tracking) return;
+      tracking = false;
+      var el = pc(); if (!el || !horiz) return;
+      var w = window.innerWidth, next = dx < 0 ? cardPos + 1 : cardPos - 1;
+      if (Math.abs(dx) < 50 || next < 0 || next >= cardList.length) { moveCard(el, 0, true); return; }
+      moveCard(el, dx < 0 ? -w : w, true);
+      setTimeout(function () {
+        cardPos = next;
+        $("ovInner").innerHTML = cardHTML(cardList[next], cardFromAlbum);
+        fitCard();
+        var n = pc(); if (!n) return;
+        moveCard(n, dx < 0 ? w : -w, false);
+        n.offsetWidth;                       // apply the start position before animating in
+        moveCard(n, 0, true);
+      }, 240);
+    }, false);
+  })();
+  function openAlbum() { showOv(albumHTML(new Date()), false, "album"); }
+  function closeOv() { $("ov").style.display = "none"; }
+  $("ov").onclick = closeOv;
+
+  /* ================= Newspaper reminder ================= */
+  var PAPER_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h13v14H6a2 2 0 0 1-2-2zM17 9h3v8a2 2 0 0 1-2 2M7 9h7M7 12h7M7 15h4"/></svg>';
+  function paperNote(now) {
+    var m = now.getHours() * 60 + now.getMinutes(), name = "", at = "";
+    if (now.getDay() === 0 && m >= 20 * 60 && m < 22 * 60) { name = "周报"; at = "20:00"; }
+    else if (m >= 7 * 60 && m < 11 * 60) { name = "晨报"; at = "7:00"; }
+    else if (m >= 18 * 60 && m < 21.5 * 60) { name = "晚报"; at = "18:00"; }
+    var el = $("paper");
+    if (!name) { el.style.display = "none"; return; }
+    el.innerHTML = PAPER_ICON + name + "已送达<span>· " + at + " · 用手机看</span>";
+    el.style.display = "block";
+  }
+
+  /* ================= Photos: photos/<TRIP index>.jpg, credits in photos/credits.json ================= */
+  var photoNow = -1, credits = null;
+  function photoUrl(i) { return "photos/" + i + ".jpg"; }
+  function applyPhoto(now) {
+    var st = stopOf(dayNum(now)), i = st.city ? st.idx : -2;
+    if (i === photoNow) return;
+    photoNow = i;
+    var el = $("photo");
+    el.className = "";
+    if (i < 0) { el.style.backgroundImage = "none"; hasPhoto(false); return; }
+    var img = new Image();
+    img.onload = function () {
+      if (photoNow !== i) return;
+      el.style.backgroundImage = "url(" + photoUrl(i) + ")";
+      el.className = "on"; hasPhoto(true);
+    };
+    img.onerror = function () { hasPhoto(false); };   // offline or missing: keep the plain gradient
+    img.src = photoUrl(i);
+  }
+  var photoFlag = false;
+  function hasPhoto(on) { photoFlag = on; applyMood(); }
+  function loadCredits() {
+    try {
+      var x = new XMLHttpRequest();
+      x.open("GET", "photos/credits.json", true);
+      x.onreadystatechange = function () {
+        if (x.readyState === 4 && x.status === 200) { try { credits = JSON.parse(x.responseText); } catch (e) {} }
+      };
+      x.send();
+    } catch (e) {}
+  }
+  function esc(t) { return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+  function photoBanner(i, cap) {
+    var c = credits && credits[String(i)];
+    var cr = c ? '<div class="pc-credit">' + esc(c.artist || "") + (c.license ? " · " + esc(c.license) : "") + '</div>' : "";
+    return '<div class="pc-photo" onclick="closeOv()"><div class="pc-img" style="background-image:url(' + photoUrl(i) + ')"></div>' +
+      '<div class="pc-shade"></div>' + (cap || "") + cr + '<div class="pc-x">×</div></div>';
+  }
+
+
+  /* ================= Accent colour: follows the stamp colour of Darcie's city ================= */
+  var ACCENTS = { "#7a3b2e": "#e3977c", "#a33b2b": "#ee8e78", "#2f5d7c": "#8cbfe0", "#3f6b4f": "#97cfa3", "#8a5a2b": "#e0b07a", "#5a3d6e": "#c4a5e2" };
+  var accentNow = "";
+  function applyAccent(now) {
+    var st = stopOf(dayNum(now));
+    var col = (st.city && ACCENTS[st.city[5]]) || "#e6b26a";
+    if (col === accentNow) return;
+    accentNow = col;
+    var r = parseInt(col.slice(1, 3), 16), g = parseInt(col.slice(3, 5), 16), b = parseInt(col.slice(5, 7), 16);
+    var rgba = function (a) { return "rgba(" + r + "," + g + "," + b + "," + a + ")"; };
+    $("accent").textContent =
+      ".colon, .dz-name, .vocab-label { color: " + col + "; }" +
+      ".dz-new, .pc-count.new { background: " + col + "; }" +
+      ".dz-bubble { background: " + rgba(0.18) + "; }" +
+      ".dz-bubble.old { background: " + rgba(0.10) + "; }" +
+      "#tint { background: -webkit-linear-gradient(bottom, " + rgba(0.24) + ", " + rgba(0) + "); background: linear-gradient(to top, " + rgba(0.24) + ", " + rgba(0) + "); }";
+  }
+
+  /* ================= Time of day ================= */
+  // morning 5:00–11:00 · day 11:00–17:00 · evening 17:00 onwards (night view from 23:30)
+  function modeOf(now) {
+    var t = now.getHours() * 60 + now.getMinutes();
+    if (t >= 5 * 60 && t < 11 * 60) return "morning";
+    if (t >= 11 * 60 && t < 17 * 60) return "day";
+    return "evening";
+  }
+
+  /* ================= Clock + phrase ================= */
+  // The clock on its own, so nothing else can hold it up
+  var clockText = "";
+  function drawClock(now) {
+    var t = pad(now.getHours()) + '<span class="colon">:</span>' + pad(now.getMinutes());
+    if (t === clockText) return;
+    clockText = t;
+    $("time").innerHTML = t;
+    fitClock();
+  }
+  // Wide times like 00:07 must not run past the column: shrink the clock until it fits
+  function fitClock() {
+    var el = $("time"), box = el.parentNode, fs;
+    el.style.fontSize = "";
+    el.style.whiteSpace = "nowrap"; el.style.display = "inline-block";
+    fs = parseFloat(window.getComputedStyle(el).fontSize);
+    var room = box.clientWidth - 2;
+    while (el.offsetWidth > room && fs > 56) { fs -= 3; el.style.fontSize = fs + "px"; }
+    el.style.display = "";
+  }
+
+  /* ================= Night view ================= */
+  // Moon phase from the date (0 = new moon, 0.5 = full moon)
+  function moonPhase(now) {
+    var days = now.getTime() / 86400000 - 10962.76;   // days since a known new moon (2000-01-06 18:14 UTC)
+    var p = (days % 29.530588853) / 29.530588853;
+    return p < 0 ? p + 1 : p;
+  }
+  var MOON_FR = ["nouvelle lune", "premier croissant", "premier quartier", "lune gibbeuse croissante",
+    "pleine lune", "lune gibbeuse décroissante", "dernier quartier", "dernier croissant"];
+  function moonSvg(p) {
+    var c = 9, r = 7.5, rx = (r * Math.abs(Math.cos(2 * Math.PI * p))).toFixed(2), path;
+    var top = c + " " + (c - r), bot = c + " " + (c + r);
+    if (p < 0.5) path = "M" + top + " A" + r + " " + r + " 0 0 1 " + bot + " A" + rx + " " + r + " 0 0 " + (p < 0.25 ? 0 : 1) + " " + top;
+    else path = "M" + top + " A" + r + " " + r + " 0 0 0 " + bot + " A" + rx + " " + r + " 0 0 " + (p < 0.75 ? 0 : 1) + " " + top;
+    return '<svg viewBox="0 0 18 18"><circle cx="9" cy="9" r="7.5" fill="#1a1411" stroke="#3a2d25" stroke-width="0.8"/>' +
+      '<path d="' + path + '" fill="#8a6a4e"/></svg>';
+  }
+  var DOG_SLEEP = '<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="15.5" fill="#15100e" stroke="#3a2d25"/>' +
+    '<ellipse cx="8" cy="15.5" rx="3.4" ry="6" transform="rotate(18 8 15.5)" fill="#4a3a2e"/><ellipse cx="24" cy="15.5" rx="3.4" ry="6" transform="rotate(-18 24 15.5)" fill="#4a3a2e"/>' +
+    '<circle cx="16" cy="17" r="8.6" fill="#5e4a3a"/><path d="M10.8 16.2q1.5 1.3 3 0M17.2 16.2q1.5 1.3 3 0" stroke="#241b16" stroke-width="1.1" fill="none" stroke-linecap="round"/>' +
+    '<ellipse cx="16" cy="20" rx="1.5" ry="1.05" fill="#241b16"/></svg>';
+  function ymd(x) { return x.getFullYear() + "-" + pad(x.getMonth() + 1) + "-" + pad(x.getDate()); }
+  // The big moon behind the night clock, drawn in its real phase
+  var moonKey = "";
+  function drawMoon(now) {
+    var p = moonPhase(now), key = p.toFixed(2);
+    if (key === moonKey) return;
+    moonKey = key;
+    var c = 100, r = 92, rx = (r * Math.abs(Math.cos(2 * Math.PI * p))).toFixed(2), lit;
+    var top = c + " " + (c - r), bot = c + " " + (c + r);
+    if (p < 0.5) lit = "M" + top + " A" + r + " " + r + " 0 0 1 " + bot + " A" + rx + " " + r + " 0 0 " + (p < 0.25 ? 0 : 1) + " " + top;
+    else lit = "M" + top + " A" + r + " " + r + " 0 0 0 " + bot + " A" + rx + " " + r + " 0 0 " + (p < 0.75 ? 0 : 1) + " " + top;
+    // maria (the dark "seas") and a few craters, very faint
+    var craters = [[74, 66, 22, 0.10], [118, 58, 15, 0.09], [128, 100, 24, 0.08], [86, 112, 13, 0.08], [104, 142, 11, 0.07],
+      [56, 96, 6, 0.12], [150, 76, 5, 0.12], [140, 136, 7, 0.1], [66, 140, 5, 0.12], [112, 84, 3, 0.15], [92, 160, 4, 0.12]], cr = "", i;
+    for (i = 0; i < craters.length; i++) cr += '<circle cx="' + craters[i][0] + '" cy="' + craters[i][1] + '" r="' + craters[i][2] + '" fill="#000" opacity="' + craters[i][3] + '"/>';
+    $("moon").innerHTML = '<svg viewBox="0 0 200 200"><defs>' +
+      '<radialGradient id="mg" cx="42%" cy="38%" r="70%"><stop offset="0" stop-color="#3a2b1f"/><stop offset="1" stop-color="#1d150f"/></radialGradient>' +
+      '<radialGradient id="mh" cx="50%" cy="50%" r="50%"><stop offset="0.82" stop-color="#3a2a1f" stop-opacity="0.22"/><stop offset="1" stop-color="#3a2a1f" stop-opacity="0"/></radialGradient>' +
+      '<clipPath id="mc"><path d="' + lit + '"/></clipPath></defs>' +
+      '<circle cx="100" cy="100" r="100" fill="url(#mh)"/>' +
+      '<circle cx="100" cy="100" r="' + r + '" fill="#0e0a09"/>' +                       // the dark side, just visible
+      '<path d="' + lit + '" fill="url(#mg)"/>' +
+      '<g clip-path="url(#mc)">' + cr + '</g></svg>';
+  }
+  function nightHTML(now) {
+    var h = now.getHours(), p = moonPhase(now), sun = "", wx = "";
+    if (lastWeatherText) {
+      try {
+        var d = JSON.parse(lastWeatherText).daily, tgt = new Date(now.getTime() + (h >= 12 ? 86400000 : 0)), i, k = -1;
+        for (i = 0; i < d.time.length; i++) if (d.time[i] === ymd(tgt)) k = i;
+        if (k >= 0) {
+          sun = '<div class="ni-sun">lever du soleil<b>' + d.sunrise[k].slice(11, 16) + '</b></div>';
+          wx = '<div class="ni-line">' + (h >= 12 ? "demain" : "au réveil") + '<span class="ni-ico">' + ICONS[wmo(d.weather_code[k])[0]] + '</span>' +
+            '<b>' + deg(d.temperature_2m_max[k]) + ' / ' + deg(d.temperature_2m_min[k]) + '</b></div>';
+        }
+      } catch (e) {}
+    }
+    var st = stopOf(dayNum(now));
+    var where = st.city ? (/^le /i.test(st.city[2]) ? "au " + st.city[2].slice(3) : "à " + st.city[2]) : "à la maison";
+    return sun +
+      '<div class="ni-line"><span class="ni-moon">' + MOON_FR[Math.floor(p * 8 + 0.5) % 8] + '</span><span class="ni-sep">·</span><span class="ni-dz">Darcie dort ' + where + '<span class="ni-zz">z z</span></span></div>' +
+      wx;
+  }
+
+  // a few faint stars, placed the same way every night
+  (function () {
+    var r = new Rng(7), g = "", i;
+    for (i = 0; i < 52; i++) {
+      var x = (r.next() * 100).toFixed(1), y = (Math.pow(r.next(), 1.4) * 96).toFixed(1), o = (0.15 + r.next() * 0.4).toFixed(2), z = r.next() < 0.15 ? 2 : 1;
+      g += '<i style="left:' + x + '%;top:' + y + '%;width:' + z + 'px;height:' + z + 'px;opacity:' + o + '"></i>';
+    }
+    $("stars").innerHTML = g;
+  })();
+
+  function render() {
+    var now = new Date();
+    drawClock(now);
+    $("dateCn").innerHTML = (now.getMonth() + 1) + "月" + now.getDate() + "日 " + weekdaysCN[now.getDay()] +
+      " · <i>" + weekdaysFR[now.getDay()] + "</i>";
+
+    paperNote(now);
+    safe(function () { $("nightSun").innerHTML = nightHTML(now); drawMoon(now); });
+    applyAccent(now);
+    safe(function () { applyPhoto(now); });
+    if (lastWeatherText) { try { renderWeather(lastWeatherText); } catch (e) {} }
+
+    var dz = darcieHTML(now);
+    $("dzPort").innerHTML = dz;
+    $("dzLand").innerHTML = dz;
+
+    // Word of the day: taken from today's postcard
+    var st = stopOf(dayNum(now)), w = st.word;
+    $("fr").innerHTML = w[0];
+    $("cn").innerHTML = w[1] + '<span class="pos">' + w[2] + '</span>';
+  }
+
+  // Background by time of day; night mode unless the screen was tapped in the last 15 s
+  var peekUntil = 0;
+  function applyMood() {
+    var now = new Date(), h = now.getHours(), t = h * 60 + now.getMinutes(), cls;
+    if (t >= 23 * 60 + 30 || h < 6) cls = now.getTime() > peekUntil ? "night" : "dusk";
+    else if (h < 10) cls = "dawn";
+    else if (h < 17) cls = "day";
+    else cls = "dusk";
+    document.body.className = cls + " m-" + modeOf(now) + (photoFlag ? " has-photo" : "");
+    if (cls !== "night") fit();   // re-check the fit when the night view is lifted
+    else fitClock();
+  }
+  document.addEventListener("touchstart", function () {
+    peekUntil = new Date().getTime() + 15000;
+    applyMood();
+    setTimeout(applyMood, 15500);
+  }, false);
+
+  // Step down (smaller clock -> hide word of the day -> hide reminder chips) until it fits
+  function fit() {
+    var sc = document.querySelector(".screen");
+    var levels = ["screen", "screen tight", "screen tight tight2", "screen tight tight2 tight3"];
+    for (var i = 0; i < levels.length; i++) {
+      sc.className = levels[i];
+      fitClock();
+      if (sc.scrollHeight <= sc.clientHeight) return;
+    }
+  }
+
+  // Run one part; if it fails, show the error and carry on with the rest
+  function safe(fn) {
+    try { fn(); } catch (e) {
+      var el = $("err");
+      el.innerHTML = "出错: " + (e && e.message ? e.message : e);
+      el.style.display = "block";
+    }
+  }
+  function refreshAll() { safe(render); safe(fit); safe(applyMood); }
+
+  // Check every second: the clock is redrawn the moment the minute changes,
+  // and if the iPod was asleep (timers paused for minutes), the whole page reloads.
+  var lastMinute = -1, lastBeat = new Date().getTime();
+  function tick() {
+    var now = new Date(), t = now.getTime();
+    if (t - lastBeat > 3 * 60 * 1000) { location.reload(); return; }
+    lastBeat = t;
+    var m = now.getHours() * 60 + now.getMinutes();
+    if (m !== lastMinute) { lastMinute = m; safe(function () { drawClock(now); }); refreshAll(); }
+  }
+  function wake() { lastMinute = -1; tick(); }
+
+  refreshAll();
+  lastMinute = new Date().getHours() * 60 + new Date().getMinutes();
+  setInterval(tick, 1000);
+  // redraw straight away when the screen comes back on or the page is reopened
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) wake(); }, false);
+  window.addEventListener("pageshow", wake, false);
+  window.addEventListener("focus", wake, false);
+  // Offline copy (application cache): when the Mac has a newer version, switch to it.
+  // Without the Mac the page still opens from the iPod's own copy.
+  if (window.applicationCache) {
+    applicationCache.addEventListener("updateready", function () {
+      try { applicationCache.swapCache(); } catch (e) {}
+      location.reload();
+    }, false);
+    setInterval(function () { try { applicationCache.update(); } catch (e) {} }, 30 * 60 * 1000);
+  }
+
+  /* ================= Weather (a GitHub Action writes weather.json next to this page every 30 min) ================= */
+  var S = '<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">';
+  var ICONS = {
+    sun: S + '<circle cx="16" cy="16" r="5.5"/><path d="M16 3v3M16 26v3M3 16h3M26 16h3M6.8 6.8l2.1 2.1M23.1 23.1l2.1 2.1M6.8 25.2l2.1-2.1M23.1 8.9l2.1-2.1"/></svg>',
+    partly: S + '<circle cx="11" cy="11" r="4"/><path d="M11 3v1.5M3 11h1.5M5.3 5.3l1.1 1.1M16.7 5.3l-1.1 1.1"/><path d="M12 26h11a4.5 4.5 0 0 0 .5-8.97A6 6 0 0 0 12.2 16 5 5 0 0 0 12 26z"/></svg>',
+    cloud: S + '<path d="M10 24h13a5 5 0 0 0 .6-9.96A7 7 0 0 0 10.2 13 5.5 5.5 0 0 0 10 24z"/></svg>',
+    fog: S + '<path d="M5 11h22M8 16h19M5 21h22M9 26h14"/></svg>',
+    rain: S + '<path d="M10 19h13a5 5 0 0 0 .6-9.96A7 7 0 0 0 10.2 8 5.5 5.5 0 0 0 10 19z"/><path d="M12 23l-1.5 4M17 23l-1.5 4M22 23l-1.5 4"/></svg>',
+    snow: S + '<path d="M10 19h13a5 5 0 0 0 .6-9.96A7 7 0 0 0 10.2 8 5.5 5.5 0 0 0 10 19z"/><path d="M11 24v4M9 26h4M17 24v4M15 26h4M23 24v4M21 26h4"/></svg>',
+    storm: S + '<path d="M10 19h13a5 5 0 0 0 .6-9.96A7 7 0 0 0 10.2 8 5.5 5.5 0 0 0 10 19z"/><path d="M17 21l-3 5h4l-3 5"/></svg>'
+  };
+  function wmo(code) {
+    if (code === 0) return ["sun", "Ensoleillé"];
+    if (code === 1 || code === 2) return ["partly", "Peu nuageux"];
+    if (code === 3) return ["cloud", "Couvert"];
+    if (code === 45 || code === 48) return ["fog", "Brouillard"];
+    if (code >= 51 && code <= 57) return ["rain", "Bruine"];
+    if (code >= 61 && code <= 67) return ["rain", "Pluie"];
+    if (code >= 71 && code <= 77) return ["snow", "Neige"];
+    if (code >= 80 && code <= 82) return ["rain", "Averses"];
+    if (code === 85 || code === 86) return ["snow", "Averses de neige"];
+    if (code >= 95) return ["storm", "Orage"];
+    return ["cloud", ""];
+  }
+  function deg(t) { return Math.round(t) + "°"; }
+
+  // Outfit: a short list of what to wear, plus small reminder chips
+  var SHIRT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M9 4L4 7l2 4 2-1v10h8V10l2 1 2-4-5-3c0 1.7-1.3 3-3 3S9 5.7 9 4z"/></svg>';
+  function outfit(c, d, label) {
+    var feel = Math.min(c.apparent_temperature, d.temperature_2m_min[0]);
+    var items;
+    if (feel <= -25) items = "长羽绒服 · 保暖内衣 · 帽子手套";
+    else if (feel <= -15) items = "长羽绒服 · 保暖内衣 · 手套";
+    else if (feel <= -5) items = "羽绒服 · 毛衣 · 帽子手套";
+    else if (feel <= 5) items = "薄羽绒 · 毛衣 · 围巾";
+    else if (feel <= 12) items = "夹克 · 长袖 · 薄毛衣";
+    else if (feel <= 20) items = "长袖 · 薄外套";
+    else if (feel <= 26) items = "短袖 · 备一件薄外套";
+    else items = "短袖短裤 · 防晒";
+    var chips = [];
+    var code = c.weather_code, todayCode = d.weather_code[0];
+    var snow = (code >= 71 && code <= 77) || code === 85 || code === 86 ||
+               (todayCode >= 71 && todayCode <= 77) || todayCode === 85 || todayCode === 86;
+    var rain = (code >= 51 && code <= 67) || (code >= 80 && code <= 82) ||
+               (todayCode >= 51 && todayCode <= 67) || (todayCode >= 80 && todayCode <= 82);
+    if (feel <= -25) chips.push("极寒");
+    if (snow) chips.push("防滑靴");
+    else if (rain || d.precipitation_probability_max[0] >= 50) chips.push("带伞");
+    if (c.wind_speed_10m >= 30) chips.push("防风");
+    if (d.temperature_2m_max[0] - d.temperature_2m_min[0] >= 10) chips.push("温差大");
+    if (feel <= -10) chips.push("遛狗擦爪");
+    var html = '<span class="wear-label">' + SHIRT + (label ? '<em>' + label + '</em>' : '') + '</span><span class="wi">' + items.split(" · ").join('</span> · <span class="wi">') + '</span>';
+    chips = chips.slice(0, 3);
+    if (chips.length) {
+      html += '<div class="chips">';
+      for (var i = 0; i < chips.length; i++) {
+        var isAlert = chips[i] === "极寒" || chips[i] === "防滑靴" || chips[i] === "带伞";
+        html += '<span class="chip' + (isAlert ? ' alert' : '') + '">' + chips[i] + '</span>';
+      }
+      html += '</div>';
+    }
+    return html;
+  }
+
+  // Keep the last good weather so the screen still shows it when the Mac is off
+  function saveWeather(text) { try { localStorage.setItem("lastWeather", text); } catch (e) {} }
+  function lastWeather() { try { return localStorage.getItem("lastWeather"); } catch (e) { return null; } }
+
+  // "2026-11-11T19:30" (Edmonton time) -> Date
+  function obsTime(str) {
+    var m = /^(\d+)-(\d+)-(\d+)T(\d+):(\d+)/.exec(str || "");
+    return m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) : null;
+  }
+
+  var shownWeather = null, lastWeatherText = null;
+  /* Daylight arc: the sun's place between sunrise and sunset, day length and how it changes */
+  function hmMin(iso) { return parseInt(iso.slice(11, 13), 10) * 60 + parseInt(iso.slice(14, 16), 10); }
+  function durTxt(m) { return Math.floor(m / 60) + " h " + pad(m % 60); }
+  function sunArc(f, up) {
+    var W = 60, H = 26, cx = 30, rx = 26, ry = 20, base = 24;
+    var a = Math.PI * Math.max(0, Math.min(1, f));
+    var sx = (cx - rx * Math.cos(a)).toFixed(1), sy = (base - ry * Math.sin(a)).toFixed(1);
+    var g = '<svg class="sun-arc" viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '">' +
+      '<line x1="0" y1="' + base + '" x2="' + W + '" y2="' + base + '" stroke="rgba(243,234,217,0.28)" stroke-width="1"/>' +
+      '<path d="M' + (cx - rx) + ' ' + base + ' A' + rx + ' ' + ry + ' 0 0 1 ' + (cx + rx) + ' ' + base + '" fill="none" stroke="rgba(243,234,217,0.3)" stroke-width="1" stroke-dasharray="2 3"/>';
+    if (up) g += '<path d="M' + (cx - rx) + ' ' + base + ' A' + rx + ' ' + ry + ' 0 0 1 ' + sx + ' ' + sy + '" fill="none" stroke="#e6b26a" stroke-width="1.5"/>' +
+      '<circle cx="' + sx + '" cy="' + sy + '" r="6" fill="rgba(230,178,106,0.25)"/><circle cx="' + sx + '" cy="' + sy + '" r="3.4" fill="#f2c37e"/>';
+    else g += '<circle cx="' + sx + '" cy="' + base + '" r="3" fill="none" stroke="#e6b26a" stroke-width="1.2"/>';
+    return g + '</svg>';
+  }
+  function sunHTML(d, now, evening) {
+    var m = now.getHours() * 60 + now.getMinutes();
+    var r0 = hmMin(d.sunrise[0]), s0 = hmMin(d.sunset[0]);
+    var day0 = s0 - r0, day1 = d.sunrise[1] && d.sunset[1] ? hmMin(d.sunset[1]) - hmMin(d.sunrise[1]) : null;
+    var diff = day1 === null ? null : day1 - day0;
+    var trend = diff === null ? "" : (diff === 0 ? "pareil demain" : (diff > 0 ? "+" : "−") + Math.abs(diff) + " min demain");
+    var arc, l1, l2;
+    if (!evening || m < s0) {
+      // morning (or before sunset): today's arc
+      arc = sunArc((m - r0) / day0, m >= r0 && m <= s0);
+      l1 = '<b class="v">' + d.sunrise[0].slice(11, 16) + '</b> <i>lever</i><span class="sep">·</span><b class="v">' + d.sunset[0].slice(11, 16) + '</b> <i>coucher</i>';
+      l2 = '<i>' + durTxt(day0) + ' de jour' + (trend ? ' · ' + trend : '') + '</i>';
+    } else {
+      // after sunset: the sun has gone down, tomorrow it rises at…
+      arc = sunArc(1, false);
+      l1 = '<b class="v">' + d.sunset[0].slice(11, 16) + '</b> <i>coucher</i><span class="sep">·</span><i>demain</i> <b class="v">' + d.sunrise[1].slice(11, 16) + '</b>';
+      l2 = '<i>' + durTxt(day1) + ' de jour demain' + (diff ? ' · ' + (diff > 0 ? "+" : "−") + Math.abs(diff) + ' min' : '') + '</i>';
+    }
+    return '<div class="sun-row">' + arc + '<div class="sun-txt"><div>' + l1 + '</div><div class="sun-sub">' + l2 + '</div></div></div>';
+  }
+
+  function renderWeather(text) {
+    lastWeatherText = text;
+    var w = JSON.parse(text);
+    var c = w.current, d = w.daily;
+    var nowD = new Date(), mode = modeOf(nowD);
+    var ahead = mode === "evening" && nowD.getHours() >= 12;     // from 17:00: think about tomorrow
+    var lo, hi;
+    if (!ahead) {
+      var cur = wmo(c.weather_code), tmr = wmo(d.weather_code[1]);
+      $("wIcon").innerHTML = ICONS[cur[0]];
+      $("wTemp").innerHTML = deg(c.temperature_2m);
+      $("wDesc").innerHTML = "<b>" + cur[1] + "</b><i>ressenti</i> " + deg(c.apparent_temperature);
+      $("wBarLbl").innerHTML = "今天";
+      lo = d.temperature_2m_min[0]; hi = d.temperature_2m_max[0];
+      var pos = hi > lo ? (c.temperature_2m - lo) / (hi - lo) : 0.5;
+      $("wDot").style.left = Math.round(Math.max(0, Math.min(1, pos)) * 100) + "%";
+      $("wDot").style.display = "block";
+      $("wBar").style.display = "";
+      var rainPct = d.precipitation_probability_max[0];
+      $("wDays").innerHTML =
+        "明天 " + tmr[1] + ' <b class="v">' + deg(d.temperature_2m_max[1]) + " / " + deg(d.temperature_2m_min[1]) + "</b>" +
+        '<span class="sep">·</span>' +
+        (rainPct >= 30 ? '<span class="rain">降水 <b class="v">' + rainPct + "%</b></span>" : '<i>vent</i> <b class="v">' + Math.round(c.wind_speed_10m) + " km/h</b>");
+      $("wWear").innerHTML = outfit(c, d, "");
+    } else {
+      var t1 = wmo(d.weather_code[1]);
+      $("wIcon").innerHTML = ICONS[t1[0]];
+      $("wTemp").innerHTML = deg(d.temperature_2m_max[1]);
+      $("wDesc").innerHTML = "<b>明天 " + t1[1] + "</b><i>max</i> " + deg(d.temperature_2m_max[1]) + " · <i>min</i> " + deg(d.temperature_2m_min[1]);
+      $("wBarLbl").innerHTML = "明天";
+      lo = d.temperature_2m_min[1]; hi = d.temperature_2m_max[1];
+      $("wDot").style.display = "none";
+      $("wBar").style.display = "none";          // the high and low are already in the line above
+      var rain1 = d.precipitation_probability_max[1];
+      $("wDays").innerHTML = '现在 <b class="v">' + deg(c.temperature_2m) + '</b><span class="sep">·</span><i>ressenti</i> <b class="v">' + deg(c.apparent_temperature) + "</b>" +
+        (rain1 >= 30 ? '<span class="sep">·</span><span class="rain">明天降水 <b class="v">' + rain1 + "%</b></span>" : "");
+      // tomorrow's outfit, judged from tomorrow's low (a little colder for wind and morning chill)
+      var tc = { apparent_temperature: d.temperature_2m_min[1] - 3, weather_code: d.weather_code[1], wind_speed_10m: 0 };
+      var td = { weather_code: [d.weather_code[1]], temperature_2m_max: [d.temperature_2m_max[1]],
+                 temperature_2m_min: [d.temperature_2m_min[1]], precipitation_probability_max: [d.precipitation_probability_max[1]] };
+      $("wWear").innerHTML = outfit(tc, td, "明天");
+    }
+    $("wLo").innerHTML = deg(lo);
+    $("wHi").innerHTML = deg(hi);
+    $("weather").style.display = "block";
+    // Sunrise / sunset only in the morning and evening
+    if (d.sunrise && d.sunset) {
+      if (mode === "morning" || (mode === "evening" && d.sunrise[1])) {
+        $("wSun").innerHTML = sunHTML(d, nowD, mode === "evening");
+        $("wSun").className = "w-days w-sun on";
+      } else {
+        $("wSun").className = "w-days w-sun";
+      }
+    }
+    shownWeather = obsTime(c.time);
+    checkStale();
+    fit();
+  }
+
+  // Show "更新于 …" once the weather is more than 75 minutes old
+  function checkStale() {
+    var el = $("wStale");
+    if (!shownWeather) { el.style.display = "none"; return; }
+    var age = (new Date().getTime() - shownWeather.getTime()) / 60000;
+    if (age < 120) { el.style.display = "none"; return; }
+    var t = shownWeather, today = new Date();
+    var sameDay = t.getDate() === today.getDate() && t.getMonth() === today.getMonth();
+    el.innerHTML = "天气更新于 " + (sameDay ? "" : (t.getMonth() + 1) + "月" + t.getDate() + "日 ") +
+      pad(t.getHours()) + ":" + pad(t.getMinutes()) + " · 检查 Wi-Fi";
+    el.style.display = "block";
+  }
+
+  function loadWeather() {
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", "weather.json?t=" + new Date().getTime(), true);
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState !== 4) return;
+      if (xhr.status === 200) {
+        try { renderWeather(xhr.responseText); saveWeather(xhr.responseText); return; } catch (e) {}
+      }
+      var old = lastWeather();               // Mac unreachable: fall back to the last copy
+      if (old) { try { renderWeather(old); } catch (e2) {} }
+    };
+    xhr.send();
+  }
+  setInterval(checkStale, 60000);
+  loadWeather();
+  loadCredits();
+  setInterval(loadWeather, 10 * 60 * 1000);
+</script>
+</body>
+</html>
