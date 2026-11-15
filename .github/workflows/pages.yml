@@ -42,7 +42,6 @@ jobs:
           if [ "$(TZ=America/Edmonton date +%u%H)" = "703" ]; then
             git config user.name "ipod-weather-bot"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            cp weather.json weather-last.json 2>/dev/null || true
             git add weather.json
             git commit -m "Weekly weather snapshot" && git push || true
           fi
