@@ -29,7 +29,7 @@ jobs:
 
       - name: Fetch weather (keep the last good file if Open-Meteo fails)
         run: |
-          URL='https://api.open-meteo.com/v1/forecast?latitude=53.55&longitude=-113.49&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset&timezone=America%2FEdmonton&forecast_days=3'
+          URL='https://api.open-meteo.com/v1/forecast?latitude=53.55&longitude=-113.49&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m&hourly=temperature_2m,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset&timezone=America%2FEdmonton&forecast_days=3'
           if curl -fsS --retry 3 --retry-delay 10 -m 30 "$URL" -o new.json && python3 -c "import json;d=json.load(open('new.json'));assert d['current'] and d['daily']['sunrise']"; then
             mv new.json weather.json; echo "weather updated"
           else

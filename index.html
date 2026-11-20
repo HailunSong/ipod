@@ -157,6 +157,11 @@
     color: #f3ead9; font-size: 14px; line-height: 24px;
   }
   .chip.alert { border-color: rgba(230,178,106,0.7); color: #e6b26a; }
+  .w-desc .v.wc, .w-days .v.wc { color: #f3ead9; }
+  .w-desc b.wc { display: inline; font-size: 17px; font-weight: 600; }
+  .v.wc.r1 { color: #9fc6e8 !important; }
+  .v.wc.r2 { color: #7fb0f0 !important; }
+  .v.wc.r3, .v.wc.r4 { color: #f0a08c !important; }
 
   /* ---- Word of the day (from today's postcard) ---- */
   .phrase { margin-top: 24px; }
@@ -1260,7 +1265,9 @@
         if (k >= 0) {
           sun = '<div class="ni-sun">lever du soleil<b>' + d.sunrise[k].slice(11, 16) + '</b></div>';
           wx = '<div class="ni-line">' + (h >= 12 ? "demain" : "au réveil") + '<span class="ni-ico">' + ICONS[wmo(d.weather_code[k])[0]] + '</span>' +
-            '<b>' + deg(d.temperature_2m_max[k]) + ' / ' + deg(d.temperature_2m_min[k]) + '</b></div>';
+            '<b>' + deg(d.temperature_2m_max[k]) + ' / ' + deg(d.temperature_2m_min[k]) + '</b>' +
+            (function () { var wc = chillAt(JSON.parse(lastWeatherText), d.time[k] + "T08:00");
+              return wc !== null && wc <= -10 ? ' <span class="ni-sep" style="display:inline">·</span> 风寒 <b>' + wc + '</b>' : ''; })() + '</div>';
         }
       } catch (e) {}
     }
@@ -1397,10 +1404,52 @@
   }
   function deg(t) { return Math.round(t) + "°"; }
 
+  /* Wind chill (Environment Canada formula), only meaningful at 10°C or below with some wind */
+  function windChill(t, v) {
+    if (t > 10 || v < 5) return null;
+    var p = Math.pow(v, 0.16);
+    return Math.round(13.12 + 0.6215 * t - 11.37 * p + 0.3965 * t * p);
+  }
+  // Environment Canada risk bands: how fast exposed skin can freeze
+  function chillRisk(wc) {
+    if (wc === null || wc > -28) return null;
+    if (wc <= -55) return { lv: 4, txt: "冻伤风险 · 2 分钟内" };
+    if (wc <= -48) return { lv: 3, txt: "冻伤风险 · 2–5 分钟" };
+    if (wc <= -40) return { lv: 2, txt: "冻伤风险 · 5–10 分钟" };
+    return { lv: 1, txt: "冻伤风险 · 10–30 分钟" };
+  }
+  // Wind chill for a given local hour from the hourly forecast ("2026-11-21T08:00")
+  function chillAt(w, iso) {
+    var h = w.hourly;
+    if (!h || !h.time) return null;
+    for (var i = 0; i < h.time.length; i++) if (h.time[i] === iso) return windChill(h.temperature_2m[i], h.wind_speed_10m[i]);
+    return null;
+  }
+  // The coldest wind chill in the next n hours (for the "frostbite" reminder)
+  function chillMin(w, now, n) {
+    var h = w.hourly, best = null;
+    if (!h || !h.time) return null;
+    var start = ymd(now) + "T" + pad(now.getHours()) + ":00", on = false;
+    for (var i = 0; i < h.time.length && n > 0; i++) {
+      if (h.time[i] === start) on = true;
+      if (!on) continue;
+      var wc = windChill(h.temperature_2m[i], h.wind_speed_10m[i]);
+      if (wc !== null && (best === null || wc < best)) best = wc;
+      n--;
+    }
+    return best;
+  }
+  function chillHTML(wc) {
+    var r = chillRisk(wc);
+    return '风寒 <b class="v wc' + (r ? ' r' + r.lv : '') + '">' + wc + '</b>';
+  }
+
   // Outfit: a short list of what to wear, plus small reminder chips
   var SHIRT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M9 4L4 7l2 4 2-1v10h8V10l2 1 2-4-5-3c0 1.7-1.3 3-3 3S9 5.7 9 4z"/></svg>';
-  function outfit(c, d, label) {
+  function outfit(c, d, label, wcMin) {
     var feel = Math.min(c.apparent_temperature, d.temperature_2m_min[0]);
+    if (wcMin !== null && wcMin !== undefined) feel = Math.min(feel, wcMin);
+    var risk = chillRisk(wcMin === undefined ? null : wcMin);
     var items;
     if (feel <= -25) items = "长羽绒服 · 保暖内衣 · 帽子手套";
     else if (feel <= -15) items = "长羽绒服 · 保暖内衣 · 手套";
@@ -1411,12 +1460,13 @@
     else if (feel <= 26) items = "短袖 · 备一件薄外套";
     else items = "短袖短裤 · 防晒";
     var chips = [];
+    if (risk) chips.push(risk.lv >= 2 ? "遮住脸和手" : "冻伤风险");
     var code = c.weather_code, todayCode = d.weather_code[0];
     var snow = (code >= 71 && code <= 77) || code === 85 || code === 86 ||
                (todayCode >= 71 && todayCode <= 77) || todayCode === 85 || todayCode === 86;
     var rain = (code >= 51 && code <= 67) || (code >= 80 && code <= 82) ||
                (todayCode >= 51 && todayCode <= 67) || (todayCode >= 80 && todayCode <= 82);
-    if (feel <= -25) chips.push("极寒");
+    if (feel <= -25 && !risk) chips.push("极寒");
     if (snow) chips.push("防滑靴");
     else if (rain || d.precipitation_probability_max[0] >= 50) chips.push("带伞");
     if (c.wind_speed_10m >= 30) chips.push("防风");
@@ -1427,7 +1477,7 @@
     if (chips.length) {
       html += '<div class="chips">';
       for (var i = 0; i < chips.length; i++) {
-        var isAlert = chips[i] === "极寒" || chips[i] === "防滑靴" || chips[i] === "带伞";
+        var isAlert = chips[i] === "极寒" || chips[i] === "防滑靴" || chips[i] === "带伞" || chips[i] === "冻伤风险" || chips[i] === "遮住脸和手";
         html += '<span class="chip' + (isAlert ? ' alert' : '') + '">' + chips[i] + '</span>';
       }
       html += '</div>';
@@ -1493,7 +1543,8 @@
       var cur = wmo(c.weather_code), tmr = wmo(d.weather_code[1]);
       $("wIcon").innerHTML = ICONS[cur[0]];
       $("wTemp").innerHTML = deg(c.temperature_2m);
-      $("wDesc").innerHTML = "<b>" + cur[1] + "</b><i>ressenti</i> " + deg(c.apparent_temperature);
+      var wcNow = windChill(c.temperature_2m, c.wind_speed_10m);
+      $("wDesc").innerHTML = "<b>" + cur[1] + "</b>" + (wcNow !== null ? chillHTML(wcNow) : "<i>ressenti</i> " + deg(c.apparent_temperature));
       $("wBarLbl").innerHTML = "今天";
       lo = d.temperature_2m_min[0]; hi = d.temperature_2m_max[0];
       var pos = hi > lo ? (c.temperature_2m - lo) / (hi - lo) : 0.5;
@@ -1505,24 +1556,28 @@
         "明天 " + tmr[1] + ' <b class="v">' + deg(d.temperature_2m_max[1]) + " / " + deg(d.temperature_2m_min[1]) + "</b>" +
         '<span class="sep">·</span>' +
         (rainPct >= 30 ? '<span class="rain">降水 <b class="v">' + rainPct + "%</b></span>" : '<i>vent</i> <b class="v">' + Math.round(c.wind_speed_10m) + " km/h</b>");
-      $("wWear").innerHTML = outfit(c, d, "");
+      // dress for the coldest wind chill of the next 12 hours (the walk home included)
+      var wc12 = chillMin(w, nowD, 12);
+      $("wWear").innerHTML = outfit(c, d, "", wc12 === null ? wcNow : (wcNow === null ? wc12 : Math.min(wc12, wcNow)));
     } else {
       var t1 = wmo(d.weather_code[1]);
       $("wIcon").innerHTML = ICONS[t1[0]];
       $("wTemp").innerHTML = deg(d.temperature_2m_max[1]);
-      $("wDesc").innerHTML = "<b>明天 " + t1[1] + "</b><i>max</i> " + deg(d.temperature_2m_max[1]) + " · <i>min</i> " + deg(d.temperature_2m_min[1]);
+      $("wDesc").innerHTML = "<b>明天 " + t1[1] + "</b>" + deg(d.temperature_2m_max[1]) + " / " + deg(d.temperature_2m_min[1]);
       $("wBarLbl").innerHTML = "明天";
       lo = d.temperature_2m_min[1]; hi = d.temperature_2m_max[1];
       $("wDot").style.display = "none";
       $("wBar").style.display = "none";          // the high and low are already in the line above
       var rain1 = d.precipitation_probability_max[1];
-      $("wDays").innerHTML = '现在 <b class="v">' + deg(c.temperature_2m) + '</b><span class="sep">·</span><i>ressenti</i> <b class="v">' + deg(c.apparent_temperature) + "</b>" +
+      var wc8 = chillAt(w, d.time[1] + "T08:00");
+      $("wDays").innerHTML = '现在 <b class="v">' + deg(c.temperature_2m) + '</b><span class="sep">·</span>' +
+        (wc8 !== null ? '明早 8 点' + chillHTML(wc8) : '<i>ressenti</i> <b class="v">' + deg(c.apparent_temperature) + "</b>") +
         (rain1 >= 30 ? '<span class="sep">·</span><span class="rain">明天降水 <b class="v">' + rain1 + "%</b></span>" : "");
       // tomorrow's outfit, judged from tomorrow's low (a little colder for wind and morning chill)
       var tc = { apparent_temperature: d.temperature_2m_min[1] - 3, weather_code: d.weather_code[1], wind_speed_10m: 0 };
       var td = { weather_code: [d.weather_code[1]], temperature_2m_max: [d.temperature_2m_max[1]],
                  temperature_2m_min: [d.temperature_2m_min[1]], precipitation_probability_max: [d.precipitation_probability_max[1]] };
-      $("wWear").innerHTML = outfit(tc, td, "明天");
+      $("wWear").innerHTML = outfit(tc, td, "明天", wc8);
     }
     $("wLo").innerHTML = deg(lo);
     $("wHi").innerHTML = deg(hi);
