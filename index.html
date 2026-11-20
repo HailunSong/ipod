@@ -1609,19 +1609,42 @@
     el.style.display = "block";
   }
 
-  function loadWeather() {
-    var xhr = new XMLHttpRequest();
-    xhr.open("GET", "weather.json?t=" + new Date().getTime(), true);
-    xhr.onreadystatechange = function () {
-      if (xhr.readyState !== 4) return;
-      if (xhr.status === 200) {
-        try { renderWeather(xhr.responseText); saveWeather(xhr.responseText); return; } catch (e) {}
-      }
-      var old = lastWeather();               // Mac unreachable: fall back to the last copy
-      if (old) { try { renderWeather(old); } catch (e2) {} }
-    };
-    xhr.send();
+  // Weather: ask Open-Meteo directly first (fresh every time); if the old iPod can't reach it,
+  // use weather.json that GitHub refreshes; if both fail, keep the last copy we had.
+  var OM_URL = "https://api.open-meteo.com/v1/forecast?latitude=53.55&longitude=-113.49" +
+    "&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m" +
+    "&hourly=temperature_2m,wind_speed_10m" +
+    "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset" +
+    "&timezone=America%2FEdmonton&forecast_days=3";
+  var weatherSrc = "";
+  function getJSON(url, done) {
+    var xhr = new XMLHttpRequest(), finished = false;
+    var timer = setTimeout(function () { if (!finished) { finished = true; try { xhr.abort(); } catch (e) {} done(null); } }, 12000);
+    try {
+      xhr.open("GET", url, true);
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState !== 4 || finished) return;
+        finished = true; clearTimeout(timer);
+        var ok = false;
+        if (xhr.status === 200) { try { ok = !!JSON.parse(xhr.responseText).current; } catch (e) {} }
+        done(ok ? xhr.responseText : null);
+      };
+      xhr.send();
+    } catch (e) { finished = true; clearTimeout(timer); done(null); }
   }
+  function curTime(text) { try { return JSON.parse(text).current.time; } catch (e) { return ""; } }
+  function loadWeather() {
+    getJSON(OM_URL, function (direct) {
+      if (direct) { weatherSrc = "direct"; safe(function () { renderWeather(direct); saveWeather(direct); }); return; }
+      getJSON("weather.json?t=" + new Date().getTime(), function (gh) {
+        var old = lastWeather();
+        // use whichever copy is newer (GitHub's scheduled refresh can lag)
+        if (gh && (!old || curTime(gh) >= curTime(old))) { weatherSrc = "github"; safe(function () { renderWeather(gh); saveWeather(gh); }); return; }
+        if (old) { weatherSrc = "saved"; safe(function () { renderWeather(old); }); }
+      });
+    });
+  }
+
   setInterval(checkStale, 60000);
   loadWeather();
   loadCredits();
