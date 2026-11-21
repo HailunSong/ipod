@@ -157,6 +157,38 @@
     color: #f3ead9; font-size: 14px; line-height: 24px;
   }
   .chip.alert { border-color: rgba(230,178,106,0.7); color: #e6b26a; }
+  /* Word sheet and weekly review */
+  .phrase { cursor: pointer; }
+  .rev { margin-left: 10px; padding: 1px 8px; border-radius: 9px; border: 1px solid currentColor; letter-spacing: 1px; text-transform: none; }
+  .ov.sheet .ov-inner { -webkit-box-pack: start; -webkit-justify-content: flex-start; justify-content: flex-start; padding: 0; }
+  .wsheet { position: relative; width: 100%; box-sizing: border-box; padding: 30px 22px 30px; color: #f3ead9; }
+  .ws-eyebrow { font-size: 9.5px; letter-spacing: 3px; color: #8a8072; padding-right: 40px; }
+  .ws-word { margin-top: 12px; font-family: "Fraunces", Georgia, serif; font-style: italic; font-size: 40px; line-height: 1.1; }
+  .ws-mean { margin-top: 8px; font-size: 18px; }
+  .ws-mean span { margin-left: 10px; font-size: 13px; color: #a99f91; }
+  .ws-h { margin-top: 26px; font-family: "Fraunces", Georgia, serif; font-style: italic; font-size: 13px; color: #8a8072; }
+  .ws-sent { margin-top: 8px; font-family: "Fraunces", Georgia, serif; font-weight: 300; font-size: 19px; line-height: 1.5; }
+  .ws-sent mark { background: none; color: #e6b26a; font-style: italic; border-bottom: 1px solid rgba(230,178,106,0.6); }
+  .ws-zh { margin-top: 12px; font-size: 13px; line-height: 1.7; color: #a99f91; }
+  .ws-btns { margin-top: 26px; }
+  .ws-btn { display: inline-block; margin: 0 8px 8px 0; padding: 8px 14px; border-radius: 18px; border: 1px solid rgba(243,234,217,0.25); font-size: 14px; cursor: pointer; }
+  .rv-card { display: inline-block; vertical-align: top; width: 47%; margin: 0 2% 10px 0; box-sizing: border-box; padding: 12px 12px 14px; min-height: 84px;
+    border-radius: 10px; background: rgba(243,234,217,0.06); border: 1px solid rgba(243,234,217,0.1); cursor: pointer; }
+  .rv-day { font-family: "Fraunces", Georgia, serif; font-style: italic; font-size: 11px; color: #8a8072; }
+  .rv-fr { margin-top: 4px; font-family: "Fraunces", Georgia, serif; font-style: italic; font-size: 19px; line-height: 1.2; }
+  .rv-back { display: none; margin-top: 6px; font-size: 14px; color: #e6b26a; }
+  .rv-back span { display: block; margin-top: 2px; font-size: 11px; color: #a99f91; }
+  .rv-card.on { background: rgba(230,178,106,0.1); border-color: rgba(230,178,106,0.35); }
+  .rv-card.on .rv-back { display: block; }
+  @media (orientation: landscape) { .wsheet { padding: 22px 30px; } .rv-card { width: 23%; } }
+  /* Environment Canada alert banner */
+  .w-alert { display: none; margin: 14px 0 4px; padding: 7px 11px; border-radius: 8px;
+    font-size: 14px; line-height: 1.35; color: #1d1820; background: #e6b26a; }
+  .w-alert.on { display: block; }
+  .w-alert.orange { background: #f08f4f; }
+  .w-alert.red { background: #ef6a5a; color: #fff; }
+  .w-alert small { font-size: 10.5px; opacity: 0.75; margin-left: 6px; }
+  .w-alert { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 5px 10px; margin: 10px 0 2px; }
   .w-desc .v.wc, .w-days .v.wc { color: #f3ead9; }
   .w-desc b.wc { display: inline; font-size: 17px; font-weight: 600; }
   .v.wc.r1 { color: #9fc6e8 !important; }
@@ -318,6 +350,7 @@
   .ni-sep { display: none; }
   .ni-moon, .ni-dz { display: block; }
   .ni-dz { margin-top: 6px; }
+  .ni-alert { color: #a8743e; font-style: normal; }
   .ni-zz { font-style: normal; font-size: 12px; letter-spacing: 1px; margin-left: 6px; color: #55443a; }
   /* landscape night: clock on the left, the rest on the right */
   @media (orientation: landscape) {
@@ -397,8 +430,8 @@
   }
   /* photo with the place name set on it */
   .pc-photo { position: relative; height: 196px; overflow: hidden; background: #2a2530; cursor: pointer; }
-  .pc-img { position: absolute; left: 0; top: 0; right: 0; bottom: 0;
-    background-position: center 45%; background-size: cover; background-repeat: no-repeat; }
+  .pc-img { position: absolute; left: 0; top: 0; display: block; width: 100%; height: 100%;
+    object-fit: cover; object-position: 50% 45%; }
   .pc-shade { position: absolute; left: 0; right: 0; bottom: 0; height: 70%;
     background: -webkit-linear-gradient(top, rgba(12,10,16,0) 0%, rgba(12,10,16,0.62) 100%);
     background: linear-gradient(to bottom, rgba(12,10,16,0) 0%, rgba(12,10,16,0.62) 100%); }
@@ -563,6 +596,7 @@
   </div>
 
   <div class="col-b">
+    <div class="w-alert" id="wAlert"></div>
     <div class="weather" id="weather">
       <div class="w-row">
         <div class="w-icon" id="wIcon"></div>
@@ -576,8 +610,8 @@
       <div class="w-stale" id="wStale"></div>
     </div>
 
-    <div class="phrase">
-      <div class="vocab-label">Mot du jour</div>
+    <div class="phrase" onclick="openWord()">
+      <div class="vocab-label" id="vocabLbl">Mot du jour</div>
       <div class="fr" id="fr"></div>
       <div class="cn-line" id="cn"></div>
       <div class="note" id="note"></div>
@@ -1060,6 +1094,68 @@
   window.addEventListener("resize", function () { if ($("ov").style.display === "block") fitCard(); safe(fit); }, false);
   // Swipe between postcards: left = an older card, right = a newer one
   var cardList = [], cardPos = -1, cardFromAlbum = false;
+  /* ---- Word of the day: where it comes from in Darcie's postcard ---- */
+  function fold(t) {
+    return String(t).toLowerCase().replace(/[àâä]/g, "a").replace(/[éèêë]/g, "e").replace(/[îï]/g, "i")
+      .replace(/[ôö]/g, "o").replace(/[ùûü]/g, "u").replace(/ç/g, "c").replace(/[’]/g, "'");
+  }
+  // Find the sentence of the postcard that uses the word (any form of it), and mark the word
+  function wordInCard(word, body) {
+    var w = fold(word.split(",")[0]).replace(/^(un |une |le |la |les |des |l'|se |s'|du )/, "");
+    var first = w.split(" ")[0], stems = [first.length > 5 ? first.slice(0, first.length - 2) : first, first.slice(0, 3)];
+    var parts = body.match(/[^.!?…]+[.!?…]*\s*/g) || [body], i, k;
+    if (w.indexOf(" ") > 0) stems.unshift(w);           // multi-word expressions: look for the whole phrase first
+    for (k = 0; k < stems.length; k++) {
+      for (i = 0; i < parts.length; i++) {
+        var f = fold(parts[i]), at = f.indexOf(stems[k]);
+        if (at < 0) continue;
+        // stretch the match to the whole word
+        var a = at, b = at + stems[k].length;
+        while (a > 0 && /[a-z'-]/.test(f.charAt(a - 1)) && f.charAt(a - 1) !== "'") a--;
+        while (b < f.length && /[a-z-]/.test(f.charAt(b))) b++;
+        var sent = parts[i];
+        return nbsp(esc(sent.slice(0, a))) + "<mark>" + esc(sent.slice(a, b)) + "</mark>" + nbsp(esc(sent.slice(b)));
+      }
+    }
+    return null;
+  }
+  function openWord() {
+    var now = new Date(), dn = dayNum(now), st = stopOf(dn), w = st.word;
+    var html = '<div class="wsheet" onclick="event.stopPropagation()"><div class="alb-x" onclick="closeOv()">×</div>' +
+      '<div class="ws-eyebrow">MOT DU JOUR' + (st.city ? ' · ' + esc(st.city[2]) : '') + '</div>' +
+      '<div class="ws-word">' + esc(w[0]) + '</div>' +
+      '<div class="ws-mean">' + esc(w[1]) + '<span>' + esc(w[2]) + '</span></div>';
+    if (st.city) {
+      var sent = wordInCard(w[0], st.bodyFr);
+      html += '<div class="ws-h">Dans la carte de Darcie</div>' +
+        '<div class="ws-sent">« ' + (sent || nbsp(esc(st.bodyFr))) + ' »</div>' +
+        '<div class="ws-zh">' + esc(st.bodyZh) + '</div>';
+    }
+    html += '<div class="ws-btns">' +
+      (st.city ? '<span class="ws-btn" onclick="openCard(' + dn + ', false)">打开今天的明信片 ›</span>' : '') +
+      '<span class="ws-btn" onclick="openReview()">本周复习 ›</span></div></div>';
+    showOv(html, false, "sheet");
+  }
+  /* ---- Weekly review: this week's seven words as flip cards ---- */
+  function openReview() {
+    var now = new Date(), dn = dayNum(now), html = "", seen = {}, n = 0, k;
+    for (k = 6; k >= 0; k--) {
+      var st = stopOf(dn - k), w = st.word, d = dateOf(dn - k);
+      if (seen[w[0]]) continue;
+      seen[w[0]] = 1; n++;
+      html += '<div class="rv-card" onclick="this.className = this.className.indexOf(\'on\') < 0 ? \'rv-card on\' : \'rv-card\'">' +
+        '<div class="rv-day">' + weekdaysFR[d.getDay()] + '</div>' +
+        '<div class="rv-fr">' + esc(w[0]) + '</div>' +
+        '<div class="rv-back">' + esc(w[1]) + '<span>' + esc(w[2]) + '</span></div></div>';
+    }
+    showOv('<div class="wsheet rv" onclick="event.stopPropagation()"><div class="alb-x" onclick="closeOv()">×</div>' +
+      '<div class="ws-eyebrow">RÉVISION DE LA SEMAINE</div>' +
+      '<div class="ws-word" style="font-size:30px">' + n + ' mots</div>' +
+      '<div class="ws-mean" style="margin-bottom:14px">先想一想意思，再点一下翻开</div>' + html +
+      '<div class="ws-btns"><span class="ws-btn" onclick="var c=document.querySelectorAll(\'.rv-card\');for(var i=0;i<c.length;i++)c[i].className=\'rv-card on\'">全部翻开</span>' +
+      '<span class="ws-btn" onclick="openWord()">‹ 今日词汇</span></div></div>', false, "sheet");
+  }
+
   function openCard(dn, fromAlbum) {
     cardList = album(new Date()); cardPos = -1; cardFromAlbum = !!fromAlbum;
     for (var i = 0; i < cardList.length; i++) if (cardList[i] === dn) cardPos = i;
@@ -1158,7 +1254,10 @@
   function photoBanner(i, cap) {
     var c = credits && credits[String(i)];
     var cr = c ? '<div class="pc-credit">' + esc(c.artist || "") + (c.license ? " · " + esc(c.license) : "") + '</div>' : "";
-    return '<div class="pc-photo" onclick="closeOv()"><div class="pc-img" style="background-image:url(' + photoUrl(i) + ')"></div>' +
+    // a real <img> (not a CSS background): it loads more reliably on the old iPod, and if the
+    // big photo can't be fetched it falls back to the small one kept on the iPod itself
+    return '<div class="pc-photo" onclick="closeOv()"><img class="pc-img" alt="" src="' + photoUrl(i) + '"' +
+      ' onerror="this.onerror=null;this.src=\'photos/thumbs/' + i + '.jpg\'">' +
       '<div class="pc-shade"></div>' + (cap || "") + cr + '<div class="pc-x">×</div></div>';
   }
 
@@ -1273,6 +1372,8 @@
     }
     var st = stopOf(dayNum(now));
     var where = st.city ? (/^le /i.test(st.city[2]) ? "au " + st.city[2].slice(3) : "à " + st.city[2]) : "à la maison";
+    var al = freshAlerts();
+    if (al.length) wx += '<div class="ni-line ni-alert">⚠ ' + esc(al[0].zh) + '</div>';
     return sun +
       '<div class="ni-line"><span class="ni-moon">' + MOON_FR[Math.floor(p * 8 + 0.5) % 8] + '</span><span class="ni-sep">·</span><span class="ni-dz">Darcie dort ' + where + '<span class="ni-zz">z z</span></span></div>' +
       wx;
@@ -1307,6 +1408,9 @@
     // Word of the day: taken from today's postcard
     var st = stopOf(dayNum(now)), w = st.word;
     $("fr").innerHTML = w[0];
+    // Sunday evening: the week's words, ready to review
+    $("vocabLbl").innerHTML = now.getDay() === 0 && now.getHours() >= 16
+      ? 'Mot du jour<span class="rev" onclick="event.stopPropagation();openReview()">Révision de la semaine ›</span>' : "Mot du jour";
     $("cn").innerHTML = w[1] + '<span class="pos">' + w[2] + '</span>';
   }
 
@@ -1444,9 +1548,35 @@
     return '风寒 <b class="v wc' + (r ? ' r' + r.lv : '') + '">' + wc + '</b>';
   }
 
+  /* When does it rain or snow? First wet stretch between two local hours, e.g. "15 点起下雪", "雪 9–14 点" */
+  function precipWindow(w, fromIso, toIso) {
+    var h = w.hourly;
+    if (!h || !h.time || !h.precipitation) return null;
+    var a = -1, b = -1, snow = 0, rain = 0, gap = 0, i;
+    for (i = 0; i < h.time.length; i++) {
+      var t = h.time[i];
+      if (t < fromIso) continue;
+      if (t >= toIso) break;
+      var code = h.weather_code ? h.weather_code[i] : 0;
+      var wet = h.precipitation[i] >= 0.1 || (h.precipitation_probability[i] >= 60 && code >= 51);
+      if (wet) {
+        if (a < 0) a = i;
+        b = i; gap = 0;
+        if (h.snowfall[i] > 0 || (code >= 71 && code <= 77) || code === 85 || code === 86) snow++; else rain++;
+      } else if (a >= 0 && ++gap > 1) break;     // allow a one-hour pause inside the same spell
+    }
+    if (a < 0) return null;
+    var kind = snow && rain ? "雨夹雪" : (snow ? "雪" : "雨");
+    var ha = parseInt(h.time[a].slice(11, 13), 10), hb = parseInt(h.time[b].slice(11, 13), 10) + 1;
+    var lastHour = parseInt(toIso.slice(11, 13), 10) || 24;
+    if (h.time[a] === fromIso) return hb >= lastHour && b >= a ? kind + "一直下" : kind + "下到 " + hb + " 点";
+    if (h.time[b].slice(0, 10) === toIso.slice(0, 10) && hb >= lastHour) return ha + " 点起下" + kind;
+    return kind + " " + ha + "–" + hb + " 点";
+  }
+
   // Outfit: a short list of what to wear, plus small reminder chips
   var SHIRT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M9 4L4 7l2 4 2-1v10h8V10l2 1 2-4-5-3c0 1.7-1.3 3-3 3S9 5.7 9 4z"/></svg>';
-  function outfit(c, d, label, wcMin) {
+  function outfit(c, d, label, wcMin, wet) {
     var feel = Math.min(c.apparent_temperature, d.temperature_2m_min[0]);
     if (wcMin !== null && wcMin !== undefined) feel = Math.min(feel, wcMin);
     var risk = chillRisk(wcMin === undefined ? null : wcMin);
@@ -1461,6 +1591,7 @@
     else items = "短袖短裤 · 防晒";
     var chips = [];
     if (risk) chips.push(risk.lv >= 2 ? "遮住脸和手" : "冻伤风险");
+    if (wet) chips.push(wet);
     var code = c.weather_code, todayCode = d.weather_code[0];
     var snow = (code >= 71 && code <= 77) || code === 85 || code === 86 ||
                (todayCode >= 71 && todayCode <= 77) || todayCode === 85 || todayCode === 86;
@@ -1468,7 +1599,7 @@
                (todayCode >= 51 && todayCode <= 67) || (todayCode >= 80 && todayCode <= 82);
     if (feel <= -25 && !risk) chips.push("极寒");
     if (snow) chips.push("防滑靴");
-    else if (rain || d.precipitation_probability_max[0] >= 50) chips.push("带伞");
+    else if ((rain || d.precipitation_probability_max[0] >= 50) && !wet) chips.push("带伞");
     if (c.wind_speed_10m >= 30) chips.push("防风");
     if (d.temperature_2m_max[0] - d.temperature_2m_min[0] >= 10) chips.push("温差大");
     if (feel <= -10) chips.push("遛狗擦爪");
@@ -1477,7 +1608,7 @@
     if (chips.length) {
       html += '<div class="chips">';
       for (var i = 0; i < chips.length; i++) {
-        var isAlert = chips[i] === "极寒" || chips[i] === "防滑靴" || chips[i] === "带伞" || chips[i] === "冻伤风险" || chips[i] === "遮住脸和手";
+        var isAlert = chips[i] === "极寒" || chips[i] === "防滑靴" || chips[i] === "带伞" || chips[i] === "冻伤风险" || chips[i] === "遮住脸和手" || chips[i] === wet;
         html += '<span class="chip' + (isAlert ? ' alert' : '') + '">' + chips[i] + '</span>';
       }
       html += '</div>';
@@ -1558,7 +1689,8 @@
         (rainPct >= 30 ? '<span class="rain">降水 <b class="v">' + rainPct + "%</b></span>" : '<i>vent</i> <b class="v">' + Math.round(c.wind_speed_10m) + " km/h</b>");
       // dress for the coldest wind chill of the next 12 hours (the walk home included)
       var wc12 = chillMin(w, nowD, 12);
-      $("wWear").innerHTML = outfit(c, d, "", wc12 === null ? wcNow : (wcNow === null ? wc12 : Math.min(wc12, wcNow)));
+      var wetToday = precipWindow(w, ymd(nowD) + "T" + pad(nowD.getHours()) + ":00", d.time[1] + "T00:00");
+      $("wWear").innerHTML = outfit(c, d, "", wc12 === null ? wcNow : (wcNow === null ? wc12 : Math.min(wc12, wcNow)), wetToday);
     } else {
       var t1 = wmo(d.weather_code[1]);
       $("wIcon").innerHTML = ICONS[t1[0]];
@@ -1577,7 +1709,8 @@
       var tc = { apparent_temperature: d.temperature_2m_min[1] - 3, weather_code: d.weather_code[1], wind_speed_10m: 0 };
       var td = { weather_code: [d.weather_code[1]], temperature_2m_max: [d.temperature_2m_max[1]],
                  temperature_2m_min: [d.temperature_2m_min[1]], precipitation_probability_max: [d.precipitation_probability_max[1]] };
-      $("wWear").innerHTML = outfit(tc, td, "明天", wc8);
+      var wetTmr = precipWindow(w, d.time[1] + "T06:00", d.time[1] + "T23:00");
+      $("wWear").innerHTML = outfit(tc, td, "明天", wc8, wetTmr);
     }
     $("wLo").innerHTML = deg(lo);
     $("wHi").innerHTML = deg(hi);
@@ -1613,7 +1746,7 @@
   // use weather.json that GitHub refreshes; if both fail, keep the last copy we had.
   var OM_URL = "https://api.open-meteo.com/v1/forecast?latitude=53.55&longitude=-113.49" +
     "&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m" +
-    "&hourly=temperature_2m,wind_speed_10m" +
+    "&hourly=temperature_2m,wind_speed_10m,precipitation_probability,precipitation,snowfall,weather_code" +
     "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset" +
     "&timezone=America%2FEdmonton&forecast_days=3";
   var weatherSrc = "";
@@ -1632,6 +1765,36 @@
       xhr.send();
     } catch (e) { finished = true; clearTimeout(timer); done(null); }
   }
+  // Official alerts (Environment Canada), written by the GitHub job into alerts.json
+  var alertsData = null;
+  function loadAlerts() {
+    getJSONraw("alerts.json?t=" + new Date().getTime(), function (text) {
+      try { alertsData = text ? JSON.parse(text) : null; } catch (e) { alertsData = null; }
+      safe(showAlerts);
+    });
+  }
+  function freshAlerts() {
+    if (!alertsData || !alertsData.items || !alertsData.items.length) return [];
+    var age = (new Date().getTime() - new Date(alertsData.updated).getTime()) / 3600000;
+    return age < 18 ? alertsData.items : [];          // an old file says nothing about now
+  }
+  function showAlerts() {
+    var it = freshAlerts(), el = $("wAlert");
+    if (!it.length) { el.className = "w-alert"; el.innerHTML = ""; return; }
+    var top = it[0];
+    el.className = "w-alert on " + (top.level || "");
+    el.innerHTML = "⚠ " + esc(top.zh) + (it.length > 1 ? " 等 " + it.length + " 条" : "") +
+      "<small>Environment Canada</small>";
+    safe(fit);
+  }
+  function getJSONraw(url, done) {
+    var xhr = new XMLHttpRequest();
+    try {
+      xhr.open("GET", url, true);
+      xhr.onreadystatechange = function () { if (xhr.readyState === 4) done(xhr.status === 200 ? xhr.responseText : null); };
+      xhr.send();
+    } catch (e) { done(null); }
+  }
   function curTime(text) { try { return JSON.parse(text).current.time; } catch (e) { return ""; } }
   function loadWeather() {
     getJSON(OM_URL, function (direct) {
@@ -1647,8 +1810,10 @@
 
   setInterval(checkStale, 60000);
   loadWeather();
+  loadAlerts();
   loadCredits();
   setInterval(loadWeather, 10 * 60 * 1000);
+  setInterval(loadAlerts, 15 * 60 * 1000);
 </script>
 </body>
 </html>

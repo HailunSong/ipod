@@ -29,12 +29,48 @@ jobs:
 
       - name: Fetch weather (keep the last good file if Open-Meteo fails)
         run: |
-          URL='https://api.open-meteo.com/v1/forecast?latitude=53.55&longitude=-113.49&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m&hourly=temperature_2m,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset&timezone=America%2FEdmonton&forecast_days=3'
+          URL='https://api.open-meteo.com/v1/forecast?latitude=53.55&longitude=-113.49&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m&hourly=temperature_2m,wind_speed_10m,precipitation_probability,precipitation,snowfall,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset&timezone=America%2FEdmonton&forecast_days=3'
           if curl -fsS --retry 3 --retry-delay 10 -m 30 "$URL" -o new.json && python3 -c "import json;d=json.load(open('new.json'));assert d['current'] and d['daily']['sunrise']"; then
             mv new.json weather.json; echo "weather updated"
           else
             rm -f new.json; echo "::warning::weather fetch failed, keeping the previous weather.json"
           fi
+
+      - name: Fetch Environment Canada alerts for Edmonton
+        run: |
+          python3 - <<'EOF'
+          import json, re, urllib.request, datetime, xml.etree.ElementTree as ET
+          ZH = [("EXTREME COLD", "极寒"), ("ARCTIC OUTFLOW", "北极冷空气"), ("BLIZZARD", "暴风雪"), ("WINTER STORM", "冬季风暴"),
+                ("SNOWFALL", "大雪"), ("SNOW SQUALL", "雪暴"), ("FREEZING RAIN", "冻雨"), ("FREEZING DRIZZLE", "冻毛毛雨"),
+                ("RAINFALL", "暴雨"), ("WIND", "大风"), ("SEVERE THUNDERSTORM", "强雷暴"), ("TORNADO", "龙卷风"),
+                ("HEAT", "高温"), ("FOG", "大雾"), ("AIR QUALITY", "空气质量"), ("SMOKE", "山火烟雾"), ("FROST", "霜冻"),
+                ("SPECIAL WEATHER STATEMENT", "特别天气提示"), ("WEATHER ADVISORY", "天气提示")]
+          KIND = [("WARNING", "警告"), ("WATCH", "预警"), ("ADVISORY", "提示"), ("STATEMENT", "提示")]
+          items, ok = [], False
+          for url in ["https://weather.gc.ca/rss/city/ab-50_e.xml", "https://weather.gc.ca/rss/warning/ab-50_e.xml"]:
+              try:
+                  raw = urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "ipod-bedside-screen"}), timeout=30).read()
+                  root = ET.fromstring(raw); ok = True
+              except Exception as e:
+                  print("::notice::alerts feed failed", url, e); continue
+              ns = {"a": "http://www.w3.org/2005/Atom"}
+              for e in root.findall("a:entry", ns):
+                  cat = e.find("a:category", ns)
+                  title = (e.findtext("a:title", "", ns) or "").strip()
+                  if cat is not None and "Warning" not in (cat.get("term") or ""): continue
+                  up = title.upper()
+                  if not title or up.startswith("NO WATCHES OR WARNINGS") or "ENDED" in up: continue
+                  head = up.split(",")[0]
+                  zh = next((z for k, z in ZH if k in head), "天气")
+                  kind = next((z for k, z in KIND if k in head), "警告")
+                  level = "red" if "RED" in head else ("orange" if "ORANGE" in head else "yellow")
+                  item = {"zh": zh + kind, "en": title.split(",")[0].title(), "level": level}
+                  if item not in items: items.append(item)
+              if ok: break
+          now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+          json.dump({"updated": now, "ok": ok, "items": items}, open("alerts.json", "w"), ensure_ascii=False)
+          print("::notice::alerts ok=%s %s" % (ok, [i["en"] for i in items]))
+          EOF
 
       - name: Weekly keep-alive commit (GitHub pauses scheduled jobs in repos with no commits for 60 days)
         if: github.event_name == 'schedule'
