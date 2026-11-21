@@ -1212,7 +1212,6 @@
     var m = now.getHours() * 60 + now.getMinutes(), name = "", at = "";
     if (now.getDay() === 0 && m >= 20 * 60 && m < 22 * 60) { name = "周报"; at = "20:00"; }
     else if (m >= 7 * 60 && m < 11 * 60) { name = "晨报"; at = "7:00"; }
-    else if (m >= 18 * 60 && m < 21.5 * 60) { name = "晚报"; at = "18:00"; }
     var el = $("paper");
     if (!name) { el.style.display = "none"; return; }
     el.innerHTML = PAPER_ICON + name + "已送达<span>· " + at + " · 用手机看</span>";
