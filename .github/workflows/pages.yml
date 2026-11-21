@@ -47,7 +47,7 @@ jobs:
                 ("SPECIAL WEATHER STATEMENT", "特别天气提示"), ("WEATHER ADVISORY", "天气提示")]
           KIND = [("WARNING", "警告"), ("WATCH", "预警"), ("ADVISORY", "提示"), ("STATEMENT", "提示")]
           items, ok = [], False
-          for url in ["https://weather.gc.ca/rss/city/ab-50_e.xml", "https://weather.gc.ca/rss/warning/ab-50_e.xml"]:
+          for url in ["https://weather.gc.ca/rss/weather/53.536_-113.494_e.xml", "https://weather.gc.ca/rss/alerts/53.536_-113.494_e.xml"]:
               try:
                   raw = urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "ipod-bedside-screen"}), timeout=30).read()
                   root = ET.fromstring(raw); ok = True
